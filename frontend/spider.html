@@ -695,14 +695,25 @@ label.classList.add("active");
 }
 
 function clearForm(){
-document.getElementById("spiderImage").value = "";
-document.getElementById("dnaSequence").value = "";
-document.getElementById("imageLabel").textContent = "Click to upload or drag & drop";
-document.getElementById("dnaLabel").textContent = "Click to upload or drag & drop";
-document.getElementById("imageLabel").classList.remove("active");
-document.getElementById("dnaLabel").classList.remove("active");
-document.getElementById("resultContainer").style.display = "none";
-document.getElementById("dnaTabBtn").style.display = "none";
+    document.getElementById("spiderImage").value = "";
+    document.getElementById("dnaSequence").value = "";
+
+    resetLabel("imageLabel", "Select or drag image file");
+    resetLabel("dnaLabel", "Select or drag sequence file");
+
+    document.getElementById("resultContainer").style.display = "none";
+    document.getElementById("dnaTabBtn").style.display = "none";
+}
+
+function resetLabel(id, text){
+    const el = document.getElementById(id);
+    el.innerHTML = `
+        <span>${text}</span>
+        <span style="font-size: 12px; color: #999; margin-top: 5px;">
+            Supported formats
+        </span>
+    `;
+    el.classList.remove("active");
 }
 
 function identifySpider(){
@@ -716,6 +727,17 @@ if(!file){
 alert("Error: Please select an image file");
 return;
 }
+// Validate image file type
+var validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
+if(!validImageTypes.includes(file.type)){
+alert("Error: Please upload a valid image file (JPG, PNG, GIF, or BMP)");
+return;
+}
+// Validate file size (max 5MB)
+if(file.size > 5 * 1024 * 1024){
+alert("Error: Image file is too large (max 5MB)");
+return;
+}
 resultContainer.style.display = "block";
 identifySpiderImage(file, resultContainer);
 } else {
@@ -724,7 +746,21 @@ if(!file){
 alert("Error: Please select a DNA sequence file");
 return;
 }
+// Validate DNA file type
+var validDNATypes = ['text/plain', 'application/octet-stream'];
+var fileName = file.name.toLowerCase();
+if(!validDNATypes.includes(file.type) && !fileName.endsWith('.fasta') && !fileName.endsWith('.fa') && !fileName.endsWith('.txt')){
+alert("Error: Please upload a valid DNA sequence file (.txt, .fasta, or .fa)");
+return;
+}
+// Validate file size (max 10MB)
+if(file.size > 10 * 1024 * 1024){
+alert("Error: DNA file is too large (max 10MB)");
+return;
+}
 resultContainer.style.display = "block";
+document.getElementById("loadingWatcher").style.display = "block";
+document.getElementById("tabsContainer").style.display = "none";
 identifySpiderDNA(file, resultContainer);
 }
 }
@@ -919,65 +955,99 @@ switchTab('comparison');
 reader.readAsDataURL(file);
 }
 
+// Spider DNA Database - Based on NCBI BLAST queries
+// This is now handled by the backend /api/blast-sequence endpoint
+// The frontend will call NCBI BLAST through the Flask backend
+
 function identifySpiderDNA(file, resultContainer){
 var reader = new FileReader();
 reader.onload = function(e) {
 var dnaContent = e.target.result;
 var fasta = parseFASTASequence(dnaContent);
+
+// Validate sequence
+if(!fasta.sequence || fasta.sequence.length === 0){
+alert("Error: No valid DNA sequence found in file");
+document.getElementById("loadingWatcher").style.display = "none";
+return;
+}
+
 var analysis = analyzeDNASequence(fasta.sequence);
 
-// Match against known spider DNA sequences
-var matches = matchDNASequence(
-    fasta.sequence,
-    analysis,
-    fasta.id
-);
+// Call NCBI BLAST endpoint
+submitSequenceToBlast(fasta.sequence, fasta.id, analysis, resultContainer);
+};
+reader.readAsText(file);
+}
+
+function submitSequenceToBlast(sequence, sequenceId, analysis, resultContainer){
+// Show loading state
+document.getElementById("loadingWatcher").style.display = "block";
+document.getElementById("tabsContainer").style.display = "none";
+
+// Call the backend BLAST endpoint
+fetch('/api/blast-sequence', {
+method: 'POST',
+headers: {
+'Content-Type': 'application/json'
+},
+body: JSON.stringify({
+sequence: sequence
+})
+})
+.then(response => response.json())
+.then(data => {
+document.getElementById("loadingWatcher").style.display = "none";
+document.getElementById("tabsContainer").style.display = "block";
+
+if(data.success && data.matches && data.matches.length > 0){
+// Display BLAST results
+displayBlastResults(data.matches, sequenceId, analysis, sequence);
+} else {
+alert("Error: " + (data.message || "No spider matches found"));
+}
+})
+.catch(error => {
+console.error('BLAST Error:', error);
+document.getElementById("loadingWatcher").style.display = "none";
+alert("Error querying NCBI BLAST: " + error.message);
+});
+}
+
+function displayBlastResults(matches, sequenceId, analysis, sequence){
+// Get best match (first result)
 var bestMatch = matches[0];
 
-// Display DNA analysis
-document.getElementById("dnaSequenceId").textContent = fasta.id || "Unknown Sequence";
-document.getElementById("dnaLength").textContent = fasta.sequence.length;
-document.getElementById("gcContent").textContent = analysis.gcContent;
-document.getElementById("atContent").textContent = analysis.atContent;
-document.getElementById("countA").textContent = analysis.countA;
-document.getElementById("countT").textContent = analysis.countT;
-document.getElementById("countG").textContent = analysis.countG;
-document.getElementById("countC").textContent = analysis.countC;
-document.getElementById("geneticDistance").textContent = "GC content: " + analysis.gcContent + "% (spider reference: 44-46%)";
-
-var preview = fasta.sequence.substring(0, 300);
-var previewFormatted = preview.match(/.{1,50}/g).join('\n');
-document.getElementById("sequencePreview").textContent = previewFormatted + (fasta.sequence.length > 300 ? '\n... [' + (fasta.sequence.length - 300) + ' more bases]' : '');
-
-document.getElementById("dnaTabBtn").style.display = "block";
-
-// Use matched species from actual DNA analysis (not hardcoded)
-var speciesName = bestMatch.species;
-var scientificName = bestMatch.scientific_name;
+// Extract species name from NCBI description
+var speciesName = bestMatch.species || bestMatch.description;
 var confidenceScore = bestMatch.confidence;
 
+// Update comparison tab (using best match)
+document.getElementById("uploadedImage").style.display = "none";  // Hide image placeholder
 document.getElementById("speciesName").textContent = speciesName;
-document.getElementById("scientificName").textContent = scientificName;
+document.getElementById("scientificName").textContent = bestMatch.accession || "NCBI Reference";
 document.getElementById("confidenceLevel").textContent = confidenceScore.toFixed(2) + "%";
 
+// Update report tab
 var now = new Date();
 document.getElementById("analysisDate").textContent = now.toLocaleDateString() + " " + now.toLocaleTimeString();
-document.getElementById("specimenType").textContent = "Spider DNA - Mitochondrial COI Gene (Cytochrome Oxidase I)";
-document.getElementById("classificationResult").textContent = speciesName + " (" + scientificName + ")";
+document.getElementById("specimenType").textContent = "Spider DNA - NCBI BLAST Search Results";
+document.getElementById("classificationResult").textContent = speciesName + " (NCBI Accession: " + bestMatch.accession + ")";
 document.getElementById("reportConfidence").textContent = confidenceScore.toFixed(2) + "%";
 
 var features = [
-"Sequence Length: " + fasta.sequence.length + " bp (expected: 658 bp)",
+"Sequence Length: " + sequence.length + " bp",
 "Valid Bases: " + analysis.validBases + " bp" + (analysis.countN > 0 ? " (+" + analysis.countN + " ambiguous)" : ""),
 "GC Content: " + analysis.gcContent + "%",
 "AT Content: " + analysis.atContent + "%",
-"Gene Region: Mitochondrial COI (Cytochrome Oxidase I)",
-"Taxonomic Family: " + bestMatch.family,
-"Match Method: BLAST-like DNA sequence alignment",
-"GC Content Match Score: " + bestMatch.gc_match + "%",
-"Pattern Match Score: " + bestMatch.pattern_match + "%",
-"Overall Confidence: " + confidenceScore + "%"
+"Percent Identity: " + (matches[0].percent_identity || "N/A") + "%",
+"NCBI E-value: " + matches[0].e_value.toExponential(2),
+"Bit Score: " + matches[0].bit_score,
+"Match Type: NCBI BLAST Search (Nucleotide Database)",
+"Total Matches Found: " + matches.length,
+"Query Coverage: ~" + (matches[0].align_length / sequence.length * 100).toFixed(1) + "%"
 ];
+
 var featuresList = document.getElementById("morphologicalFeatures");
 featuresList.innerHTML = "";
 features.forEach(function(feature){
@@ -986,7 +1056,25 @@ li.textContent = feature;
 featuresList.appendChild(li);
 });
 
-// Update table with all species matches from actual DNA matching
+// Update DNA analysis tab
+document.getElementById("dnaSequenceId").textContent = sequenceId || "Sequence from uploaded file";
+document.getElementById("dnaLength").textContent = sequence.length;
+document.getElementById("gcContent").textContent = analysis.gcContent;
+document.getElementById("atContent").textContent = analysis.atContent;
+document.getElementById("countA").textContent = analysis.countA;
+document.getElementById("countT").textContent = analysis.countT;
+document.getElementById("countG").textContent = analysis.countG;
+document.getElementById("countC").textContent = analysis.countC;
+
+var preview = sequence.substring(0, 300);
+var previewFormatted = preview.match(/.{1,50}/g).join('\n');
+document.getElementById("sequencePreview").textContent = previewFormatted + (sequence.length > 300 ? '\n... [' + (sequence.length - 300) + ' more bases]' : '');
+
+document.getElementById("geneticDistance").textContent = "Query coverage: " + (matches[0].align_length / sequence.length * 100).toFixed(1) + "%";
+
+document.getElementById("dnaTabBtn").style.display = "block";
+
+// Update match table with top 10 NCBI results
 var tableBody = document.getElementById("tableBody");
 tableBody.innerHTML = "";
 
@@ -996,7 +1084,6 @@ var scoreNum = match.confidence;
 var statusColor = scoreNum >= 90 ? "#4caf50" : (scoreNum >= 70 ? "#ff9800" : "#f44336");
 var status = scoreNum >= 90 ? "Excellent Match" : (scoreNum >= 70 ? "Good Match" : "Weak Match");
 
-// Create cells
 var cell1 = document.createElement("td");
 cell1.style.padding = "12px";
 cell1.style.border = "1px solid #ddd";
@@ -1021,8 +1108,14 @@ cell3.appendChild(statusSpan);
 var cell4 = document.createElement("td");
 cell4.style.padding = "12px";
 cell4.style.border = "1px solid #ddd";
-var details = "GC: " + match.gc_match + "% | Pattern: " + match.pattern_match + "%";
-cell4.textContent = details;
+var link = document.createElement("a");
+link.href = match.ncbi_url;
+link.target = "_blank";
+link.style.color = "#2d7ce0";
+link.style.textDecoration = "none";
+link.style.fontWeight = "bold";
+link.textContent = match.accession;
+cell4.appendChild(link);
 
 tr.appendChild(cell1);
 tr.appendChild(cell2);
@@ -1031,13 +1124,9 @@ tr.appendChild(cell4);
 tableBody.appendChild(tr);
 });
 
-document.getElementById("loadingWatcher").style.display = "none";
-document.getElementById("tabsContainer").style.display = "block";
+// Switch to DNA analysis tab to show results
 switchTab('dna');
-};
-reader.readAsText(file);
 }
-
 function parseFASTASequence(content) {
 var lines = content.split('\n');
 var sequenceId = "";
@@ -1054,191 +1143,6 @@ sequence += line.toUpperCase();
 
 return {id: sequenceId, sequence: sequence};
 }
-
-// Spider DNA Database - Based on NCBI COI sequences
-async function identifySpiderDNA(file, resultContainer){
-
-    var reader = new FileReader();
-
-    reader.onload = async function(e){
-
-        var dnaContent = e.target.result;
-
-        var fasta = parseFASTASequence(dnaContent);
-
-        var analysis = analyzeDNASequence(fasta.sequence);
-
-        // Show loading
-        resultContainer.style.display = "block";
-
-        document.getElementById("loadingWatcher").style.display = "block";
-
-        document.getElementById("tabsContainer").style.display = "none";
-
-        try {
-
-            const formData = new FormData();
-
-            formData.append(
-                "sequence",
-                fasta.sequence
-            );
-
-            const response = await fetch(
-                "http://localhost:3000/blast",
-                {
-                    method: "POST",
-                    body: formData
-                }
-            );
-
-            const data = await response.json();
-
-            document.getElementById("loadingWatcher").style.display = "none";
-
-            document.getElementById("tabsContainer").style.display = "block";
-
-            if (!data.success) {
-                alert(data.error);
-                return;
-            }
-
-            const bestMatch = data.matches[0];
-
-            // DNA TAB
-            document.getElementById("dnaSequenceId").textContent =
-                fasta.id || "Unknown";
-
-            document.getElementById("dnaLength").textContent =
-                fasta.sequence.length;
-
-            document.getElementById("gcContent").textContent =
-                analysis.gcContent + "%";
-
-            document.getElementById("atContent").textContent =
-                analysis.atContent + "%";
-
-            document.getElementById("countA").textContent =
-                analysis.countA;
-
-            document.getElementById("countT").textContent =
-                analysis.countT;
-
-            document.getElementById("countG").textContent =
-                analysis.countG;
-
-            document.getElementById("countC").textContent =
-                analysis.countC;
-
-            // MAIN RESULT
-            document.getElementById("speciesName").textContent =
-                bestMatch.species;
-
-            document.getElementById("scientificName").textContent =
-                bestMatch.accession;
-
-            document.getElementById("confidenceLevel").textContent =
-                "NCBI BLAST Match";
-
-            // TABLE
-            var tableBody =
-                document.getElementById("tableBody");
-
-            tableBody.innerHTML = "";
-
-            data.matches.forEach(function(match){
-
-                var tr = document.createElement("tr");
-
-                tr.innerHTML = `
-                    <td style="padding:12px;border:1px solid #ddd;">
-                        ${match.species}
-                    </td>
-
-                    <td style="padding:12px;border:1px solid #ddd;">
-                        ${match.accession}
-                    </td>
-
-                    <td style="padding:12px;border:1px solid #ddd;">
-                        ${match.length}
-                    </td>
-
-                    <td style="padding:12px;border:1px solid #ddd;">
-                        Real NCBI BLAST
-                    </td>
-                `;
-
-                tableBody.appendChild(tr);
-            });
-
-            switchTab("dna");
-
-        } catch(error){
-
-            console.error(error);
-
-            alert("NCBI BLAST request failed");
-        }
-    };
-
-    reader.readAsText(file);
-}
-
-// Score each spider species
-SPIDER_DNA_DATABASE.forEach(function(spider) {
-var score = 0;
-
-// 1. GC content matching (40% of score)
-var minGC = spider.gc_content_range[0];
-var maxGC = spider.gc_content_range[1];
-var gcDifference = Math.abs(gcContent - ((minGC + maxGC) / 2));
-var gcScore = Math.max(0, 100 - (gcDifference * 5));
-score += gcScore * 0.4;
-
-// 2. Sequence length matching (20% of score)
-var expectedLength = 658; // Standard COI length
-var lengthDifference = Math.abs(seqLength - expectedLength);
-var lengthScore = Math.max(0, 100 - (lengthDifference / 10));
-score += lengthScore * 0.2;
-
-// 3. Signature pattern matching (30% of score)
-var patternScore = 0;
-if (seqStart.includes(spider.signature_pattern.substring(0, 15))) {
-patternScore = 95;
-} else if (seqStart.includes("ATGATT")) {
-patternScore = 70;
-} else {
-patternScore = 40;
-}
-score += patternScore * 0.3;
-
-// 4. Keyword in sequence ID (10% of score)
-var idScore = 0;
-if (typeof fasta !== 'undefined' && fasta.id) {
-spider.keywords.forEach(function(keyword) {
-if (fasta.id.toLowerCase().includes(keyword)) {
-idScore = 100;
-}
-});
-}
-score += idScore * 0.1;
-
-matches.push({
-species: spider.species,
-scientific_name: spider.scientific_name,
-family: spider.family,
-confidence: Math.round(score),
-gc_match: gcScore.toFixed(1),
-pattern_match: patternScore
-});
-});
-
-// Sort by confidence score (highest first)
-matches.sort(function(a, b) {
-return b.confidence - a.confidence;
-});
-
-return matches;
 
 function analyzeDNASequence(sequence) {
 var seq = sequence.toUpperCase();

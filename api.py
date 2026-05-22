@@ -6,6 +6,10 @@ import os
 from pathlib import Path
 import json
 from werkzeug.utils import secure_filename
+import time
+import xml.etree.ElementTree as ET
+from io import StringIO
+import math
 
 # Try to import TensorFlow, but continue if it fails
 try:
@@ -15,6 +19,14 @@ try:
 except ImportError:
     TENSORFLOW_AVAILABLE = False
     print("⚠ TensorFlow not available - model loading disabled")
+
+# Try to import BioPython for NCBI BLAST
+try:
+    from Bio.Blast import NCBIWWW, NCBIXML
+    BIOPYTHON_AVAILABLE = True
+except ImportError:
+    BIOPYTHON_AVAILABLE = False
+    print("⚠ BioPython not available - NCBI BLAST disabled")
 
 app = Flask(__name__)
 CORS(app)
@@ -216,6 +228,150 @@ def get_spider_species():
         'total': len(species_list)
     })
 
+@app.route('/api/blast-sequence', methods=['POST'])
+def blast_sequence():
+    """Submit DNA sequence to NCBI BLAST and return top 10 spider species matches"""
+    try:
+        # Check if BioPython is available
+        if not BIOPYTHON_AVAILABLE:
+            return jsonify({
+                'success': False,
+                'message': 'BioPython not installed. Please install with: pip install biopython'
+            }), 500
+        
+        # Get DNA sequence from request
+        data = request.get_json()
+        if not data or 'sequence' not in data:
+            return jsonify({
+                'success': False,
+                'message': 'No DNA sequence provided'
+            }), 400
+        
+        sequence = data['sequence'].strip()
+        
+        # Validate sequence
+        if not sequence or len(sequence) < 50:
+            return jsonify({
+                'success': False,
+                'message': 'DNA sequence too short (minimum 50 bp)'
+            }), 400
+        
+        # Remove whitespace and validate it contains only ATGCN
+        sequence = ''.join(sequence.split())
+        valid_bases = set('ATGCNATGCN')
+        if not all(base.upper() in valid_bases for base in sequence):
+            return jsonify({
+                'success': False,
+                'message': 'Invalid DNA sequence. Contains non-DNA characters.'
+            }), 400
+        
+        print(f"Submitting {len(sequence)} bp sequence to NCBI BLAST...")
+        
+        try:
+            # Submit sequence to NCBI BLAST (nucleotide database, blastn)
+            # Using nucleotide BLAST (blastn) for spider DNA queries
+            result_handle = NCBIWWW.qblast(
+                "blastn",                    # Program: nucleotide search
+                "nt",                        # Database: nucleotide database
+                sequence,
+                email="spider.ai.app@example.com",  # Required by NCBI
+                expect=1e-6,                 # E-value threshold
+                format_type="XML"
+            )
+            
+            # Parse BLAST results
+            blast_results = NCBIXML.read(result_handle)
+            
+            # Extract top 10 spider matches
+            matches = []
+            seen_species = set()
+            
+            for alignment in blast_results.alignments:
+                # Extract species name from NCBI description
+                description = alignment.title
+                
+                # Parse description to extract species
+                # Format is typically: "gi|...|...|species_name other info"
+                parts = description.split('|')
+                species_info = parts[-1] if parts else description
+                
+                # Clean up the species name
+                species_name = species_info.strip()
+                
+                # Filter for spider-related hits
+                spider_keywords = ['spider', 'arachnida', 'araneae', 'salticidae', 
+                                 'lycosidae', 'araneidae', 'linyphiidae', 'thomisidae']
+                is_spider = any(keyword in species_name.lower() for keyword in spider_keywords)
+                
+                # Get HSP (High Scoring Pair) information
+                for hsp in alignment.hsps:
+                    # Skip if we've already added this species
+                    if species_name in seen_species:
+                        continue
+                    
+                    if len(matches) >= 10:
+                        break
+                    
+                    # Calculate match score (percent identity)
+                    identities = hsp.identities
+                    align_length = hsp.align_length
+                    percent_identity = (identities / align_length * 100) if align_length > 0 else 0
+                    
+                    # Calculate e-value score (lower is better, convert to confidence)
+                    e_value = hsp.expect
+                    # Convert e-value to confidence: higher confidence for lower e-values
+                    confidence = max(0, min(100, 100 - (math.log10(max(e_value, 1e-180)) + 180)))
+                    
+                    match = {
+                        'species': species_name,
+                        'accession': alignment.accession,
+                        'description': description,
+                        'percent_identity': round(percent_identity, 2),
+                        'align_length': align_length,
+                        'identities': identities,
+                        'e_value': float(e_value),
+                        'confidence': round(confidence, 2),
+                        'bit_score': round(hsp.bits, 2),
+                        'ncbi_url': f"https://www.ncbi.nlm.nih.gov/protein/{alignment.accession}"
+                    }
+                    
+                    matches.append(match)
+                    seen_species.add(species_name)
+                
+                if len(matches) >= 10:
+                    break
+            
+            # If we have fewer than 10 results, it's still valid
+            if not matches:
+                return jsonify({
+                    'success': False,
+                    'message': 'No spider sequences found in NCBI BLAST results'
+                }), 404
+            
+            return jsonify({
+                'success': True,
+                'matches': matches,
+                'total_matches': len(matches),
+                'sequence_length': len(sequence),
+                'message': f'Found {len(matches)} matching spider sequences'
+            })
+        
+        except Exception as blast_error:
+            print(f"NCBI BLAST Error: {str(blast_error)}")
+            return jsonify({
+                'success': False,
+                'message': f'NCBI BLAST Error: {str(blast_error)}'
+            }), 500
+    
+    except Exception as e:
+        print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'message': f'Server error: {str(e)}'
+        }), 500
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
@@ -225,6 +381,7 @@ def health_check():
         'endpoints': [
             '/api/identify-spider-image (POST)',
             '/api/spider-species (GET)',
+            '/api/blast-sequence (POST)',
             '/api/health (GET)'
         ]
     })
@@ -263,6 +420,7 @@ if __name__ == '__main__':
     print("="*50)
     print("  POST /api/identify-spider-image - Upload image to identify spider")
     print("  GET /api/spider-species - Get all spider species")
+    print("  POST /api/blast-sequence - NCBI BLAST DNA sequence analysis")
     print("  GET /api/health - Health check")
     
     # Get port from environment variable (Render provides this)

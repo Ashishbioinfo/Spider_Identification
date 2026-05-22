@@ -35,7 +35,7 @@ except ImportError:
 
 # Set Entrez email (required by NCBI - please update to your actual email)
 if BIOPYTHON_AVAILABLE:
-    Entrez.email = "kulkarniashisha0890@gmail.com"
+    Entrez.email = "spider.ai.app@example.com"
 
 app = Flask(__name__)
 CORS(app)
@@ -337,18 +337,37 @@ def blast_sequence():
             # Relaxed system socket timeout to wait for NCBI's web cluster processing queue
             socket.setdefaulttimeout(180)
             
-            # Switched database to standard 'nt' core database for better alignment queries
-            result_handle = NCBIWWW.qblast(
-                program="blastn",
-                database="nt",
-                sequence=sequence,
-                entrez_query="Arachnida[Organism]",
-                expect=1e-3,
-                hitlist_size=10,
-                format_type="XML"
-            )
+            result_handle = None
+            max_retries = 3
+            retry_delay = 5  # Start with a 5-second wait
             
-            print("NCBI BLAST submission successful, reading results...")
+            for attempt in range(1, max_retries + 1):
+                try:
+                    print(f"Attempt {attempt} of {max_retries}: Sending query to NCBI BLAST...")
+                    
+                    # Core database switched to 'nt' for performance and accuracy with Arachnida queries
+                    result_handle = NCBIWWW.qblast(
+                        program="blastn",
+                        database="nt",
+                        sequence=sequence,
+                        entrez_query="Arachnida[Organism]",
+                        expect=1e-3,
+                        hitlist_size=10,
+                        format_type="XML"
+                    )
+                    print("✓ Query successfully accepted by NCBI server!")
+                    break
+                    
+                except Exception as e:
+                    print(f"⚠ Attempt {attempt} failed with error: {str(e)}")
+                    if attempt == max_retries:
+                        raise RuntimeError("All remote NCBI BLAST attempts failed due to server errors.")
+                    
+                    print(f"Pausing for {retry_delay} seconds before retrying...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff (5s -> 10s -> 20s)
+
+            print("Reading results from NCBI handle...")
             blast_response = result_handle.read()
             result_handle.close()
             print(f"BLAST response size: {len(blast_response)} bytes")

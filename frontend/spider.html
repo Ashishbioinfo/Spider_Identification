@@ -959,6 +959,7 @@ document.getElementById("reportConfidence").textContent = confidenceScore.toFixe
 
 var features = [
 "Sequence Length: " + fasta.sequence.length + " bp",
+"Valid Bases (A,T,G,C): " + analysis.validBases + " bp" + (analysis.countN > 0 ? " (+" + analysis.countN + " ambiguous)" : ""),
 "GC Content: " + analysis.gcContent + "%",
 "AT Content: " + analysis.atContent + "%",
 "Taxonomic Classification: Arachnida",
@@ -1062,7 +1063,7 @@ return {id: sequenceId, sequence: sequence};
 
 function analyzeDNASequence(sequence) {
 var seq = sequence.toUpperCase();
-var countA = 0, countT = 0, countG = 0, countC = 0;
+var countA = 0, countT = 0, countG = 0, countC = 0, countN = 0;
 
 for (var i = 0; i < seq.length; i++) {
 var base = seq[i];
@@ -1070,11 +1071,14 @@ if (base === 'A') countA++;
 else if (base === 'T') countT++;
 else if (base === 'G') countG++;
 else if (base === 'C') countC++;
+else if (base === 'N' || base === '-') countN++;
 }
 
-var total = countA + countT + countG + countC;
-var gcContent = total > 0 ? ((countG + countC) / total * 100).toFixed(2) : 0;
-var atContent = total > 0 ? ((countA + countT) / total * 100).toFixed(2) : 0;
+// Calculate percentages relative to TOTAL sequence length (including N's)
+var totalLength = seq.length;
+var validBases = countA + countT + countG + countC;
+var gcContent = totalLength > 0 ? ((countG + countC) / totalLength * 100).toFixed(2) : 0;
+var atContent = totalLength > 0 ? ((countA + countT) / totalLength * 100).toFixed(2) : 0;
 
 var typicalGC = 46;
 var geneticDistance = Math.abs(gcContent - typicalGC).toFixed(2);
@@ -1084,7 +1088,9 @@ countA: countA,
 countT: countT,
 countG: countG,
 countC: countC,
-total: total,
+countN: countN,
+total: totalLength,
+validBases: validBases,
 gcContent: gcContent,
 atContent: atContent,
 geneticDistance: geneticDistance

@@ -11,6 +11,8 @@ import xml.etree.ElementTree as ET
 from io import StringIO, BytesIO
 import math
 
+
+
 # Try to import TensorFlow, but continue if it fails
 try:
     import tensorflow as tf
@@ -281,7 +283,8 @@ def blast_sequence():
                 "blastn",                    # Program: nucleotide search
                 "nt",                        # Database: nucleotide database
                 sequence,
-                expect=1e-6,                 # E-value threshold
+                expect=1e-6,
+                hitlist_size=5,                 # E-value threshold
                 format_type="XML"
             )
             

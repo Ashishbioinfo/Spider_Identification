@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: spider-ai-app
+    runtime: docker
+    region: oregon
+    plan: free
+    
+    # Expose the Flask API
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: true
+      - key: FLASK_ENV
+        value: production
+
+    # Port configuration
+    healthCheckPath: /api/health

@@ -349,8 +349,9 @@ def blast_sequence():
                 
                 result_handle = NCBIWWW.qblast(
                     "blastn",                    # Program: nucleotide search
-                    "nt",                        # Database: nucleotide database
+                    "refseq_rna",                # Database: nucleotide database
                     sequence,
+                    entrez_query="Arachnida[Organism]"
                     expect=1e-3,
                     hitlist_size=5,              # E-value threshold
                     format_type="XML"

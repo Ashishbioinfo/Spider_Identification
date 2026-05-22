@@ -927,7 +927,11 @@ var fasta = parseFASTASequence(dnaContent);
 var analysis = analyzeDNASequence(fasta.sequence);
 
 // Match against known spider DNA sequences
-var matches = matchDNASequence(fasta.sequence, analysis);
+var matches = matchDNASequence(
+    fasta.sequence,
+    analysis,
+    fasta.id
+);
 var bestMatch = matches[0];
 
 // Display DNA analysis

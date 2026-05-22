@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import cv2
 import numpy as np
@@ -229,6 +229,16 @@ def health_check():
         ]
     })
 
+@app.route('/', methods=['GET'])
+def serve_frontend():
+    """Serve the frontend index.html"""
+    return send_from_directory('frontend', 'index.html')
+
+@app.route('/<path:path>', methods=['GET'])
+def serve_static(path):
+    """Serve static files from frontend folder"""
+    return send_from_directory('frontend', path)
+
 if __name__ == '__main__':
     print("Starting Spider AI API Server...")
     print("\n" + "="*50)
@@ -254,5 +264,10 @@ if __name__ == '__main__':
     print("  POST /api/identify-spider-image - Upload image to identify spider")
     print("  GET /api/spider-species - Get all spider species")
     print("  GET /api/health - Health check")
-    print("\nServer running on http://localhost:5000")
-    app.run(debug=True, port=5000)
+    
+    # Get port from environment variable (Render provides this)
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV', 'development') == 'development'
+    
+    print(f"\nServer running on port {port}")
+    app.run(host='0.0.0.0', port=port, debug=debug)

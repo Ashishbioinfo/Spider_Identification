@@ -983,9 +983,25 @@ reader.readAsText(file);
 function submitSequenceToBlast(sequence, sequenceId, analysis, resultContainer){
 // Show loading state
 document.getElementById("loadingWatcher").style.display = "block";
+document.getElementById("loadingWatcher").innerHTML = `
+<div style="border: 4px solid #f3f3f3; border-top: 4px solid #ff6b6b; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 0 auto; margin-bottom: 20px;"></div>
+<h3 style="color: #666;">Querying NCBI BLAST...</h3>
+<p style="color: #999;">This may take 10-30 seconds. Please wait...</p>
+`;
 document.getElementById("tabsContainer").style.display = "none";
 
-// Call the backend BLAST endpoint
+console.log('Submitting sequence to NCBI BLAST:', {
+length: sequence.length,
+gc_content: analysis.gcContent,
+timestamp: new Date().toISOString()
+});
+
+// Call the backend BLAST endpoint with timeout
+var blastController = new AbortController();
+var blastTimeout = setTimeout(function() {
+blastController.abort();
+}, 120000); // 2 minute timeout
+
 fetch('/api/blast-sequence', {
 method: 'POST',
 headers: {
@@ -993,24 +1009,31 @@ headers: {
 },
 body: JSON.stringify({
 sequence: sequence
-})
+}),
+signal: blastController.signal
 })
 .then(response => {
+clearTimeout(blastTimeout);
 console.log('BLAST response status:', response.status);
-console.log('BLAST response headers:', response.headers);
+console.log('BLAST response type:', response.type);
+console.log('BLAST response url:', response.url);
+
 if(!response.ok){
 return response.text().then(text => {
+console.error('HTTP error response:', text);
 throw new Error('HTTP ' + response.status + ': ' + text);
 });
 }
 return response.text().then(text => {
-console.log('BLAST raw response:', text);
+console.log('BLAST raw response length:', text.length);
 if(!text){
 throw new Error('Empty response from server');
 }
 try {
 return JSON.parse(text);
 } catch(e){
+console.error('JSON parse error:', e);
+console.error('Response start:', text.substring(0, 300));
 throw new Error('Invalid JSON response: ' + text.substring(0, 200));
 }
 });
@@ -1028,9 +1051,22 @@ alert("Error: " + (data.message || "No spider matches found"));
 }
 })
 .catch(error => {
+clearTimeout(blastTimeout);
 console.error('BLAST Error details:', error);
 document.getElementById("loadingWatcher").style.display = "none";
-alert("Error querying NCBI BLAST:\n" + error.message);
+
+var errorMsg = error.message;
+if(error.name === 'AbortError'){
+errorMsg = 'NCBI BLAST request timed out after 2 minutes. Please try a shorter sequence.';
+} else if(errorMsg.includes('HTTP 502')){
+errorMsg = 'Server error (502). NCBI BLAST service may be unavailable. Please try again in a few moments.';
+} else if(errorMsg.includes('HTTP 503')){
+errorMsg = 'NCBI service temporarily unavailable (503). Please try again later.';
+} else if(errorMsg.includes('HTTP 504')){
+errorMsg = 'Gateway timeout (504). NCBI BLAST took too long to respond. Please try a shorter sequence.';
+}
+
+alert("Error querying NCBI BLAST:\n\n" + errorMsg);
 });
 }
 

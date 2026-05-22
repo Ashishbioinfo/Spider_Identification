@@ -632,7 +632,7 @@ DNA Sequence
 <p><strong>Sequence Length:</strong> <span id="dnaLength">0</span> bp</p>
 <p><strong>GC Content:</strong> <span id="gcContent">0</span>%</p>
 <p><strong>AT Content:</strong> <span id="atContent">0</span>%</p>
-<p style="margin-top: 15px;"><strong>Nucleotide Composition:</strong></p>
+<p style="margin-top: 15px;"><strong>Nucleotide Composition:</strong></p  >
 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px;">
 <div style="background: white; padding: 10px; border-radius: 5px; border-left: 4px solid #f5222d;">
 <span style="color: #999; font-size: 12px;">Adenine (A)</span><br>
@@ -1052,59 +1052,133 @@ return {id: sequenceId, sequence: sequence};
 }
 
 // Spider DNA Database - Based on NCBI COI sequences
-var SPIDER_DNA_DATABASE = [
-{
-species: "Salticidae (Jumping Spider)",
-scientific_name: "Salticidae",
-family: "Salticidae",
-gc_content_range: [42, 48],
-signature_pattern: "ATGATTTTTTTTGTAGATTTA",
-keywords: ["jumping", "salticidae"],
-ncbi_reference: "NC_001764"
-},
-{
-species: "Lycosidae (Wolf Spider)",
-scientific_name: "Lycosidae",
-family: "Lycosidae",
-gc_content_range: [45, 52],
-signature_pattern: "ATGATTTATTTAGAGATTTA",
-keywords: ["wolf", "lycosidae"],
-ncbi_reference: "NC_014604"
-},
-{
-species: "Araneidae (Orb Weaver)",
-scientific_name: "Araneidae",
-family: "Araneidae",
-gc_content_range: [48, 55],
-signature_pattern: "ATGATTTTATTATTGATTTA",
-keywords: ["orb", "weaver", "araneidae"],
-ncbi_reference: "NC_011950"
-},
-{
-species: "Linyphiidae (Sheet Web Spider)",
-scientific_name: "Linyphiidae",
-family: "Linyphiidae",
-gc_content_range: [43, 50],
-signature_pattern: "ATGATTTTTTTGTAGATTTA",
-keywords: ["sheet", "web", "linyphiidae"],
-ncbi_reference: "NC_024562"
-},
-{
-species: "Thomisidae (Crab Spider)",
-scientific_name: "Thomisidae",
-family: "Thomisidae",
-gc_content_range: [44, 51],
-signature_pattern: "ATGATTTTATTGGATTTA",
-keywords: ["crab", "thomisidae"],
-ncbi_reference: "NC_019382"
-}
-];
+async function identifySpiderDNA(file, resultContainer){
 
-function matchDNASequence(sequence, analysis) {
-var matches = [];
-var gcContent = parseFloat(analysis.gcContent);
-var seqLength = sequence.length;
-var seqStart = sequence.substring(0, 50);
+    var reader = new FileReader();
+
+    reader.onload = async function(e){
+
+        var dnaContent = e.target.result;
+
+        var fasta = parseFASTASequence(dnaContent);
+
+        var analysis = analyzeDNASequence(fasta.sequence);
+
+        // Show loading
+        resultContainer.style.display = "block";
+
+        document.getElementById("loadingWatcher").style.display = "block";
+
+        document.getElementById("tabsContainer").style.display = "none";
+
+        try {
+
+            const formData = new FormData();
+
+            formData.append(
+                "sequence",
+                fasta.sequence
+            );
+
+            const response = await fetch(
+                "http://localhost:3000/blast",
+                {
+                    method: "POST",
+                    body: formData
+                }
+            );
+
+            const data = await response.json();
+
+            document.getElementById("loadingWatcher").style.display = "none";
+
+            document.getElementById("tabsContainer").style.display = "block";
+
+            if (!data.success) {
+                alert(data.error);
+                return;
+            }
+
+            const bestMatch = data.matches[0];
+
+            // DNA TAB
+            document.getElementById("dnaSequenceId").textContent =
+                fasta.id || "Unknown";
+
+            document.getElementById("dnaLength").textContent =
+                fasta.sequence.length;
+
+            document.getElementById("gcContent").textContent =
+                analysis.gcContent + "%";
+
+            document.getElementById("atContent").textContent =
+                analysis.atContent + "%";
+
+            document.getElementById("countA").textContent =
+                analysis.countA;
+
+            document.getElementById("countT").textContent =
+                analysis.countT;
+
+            document.getElementById("countG").textContent =
+                analysis.countG;
+
+            document.getElementById("countC").textContent =
+                analysis.countC;
+
+            // MAIN RESULT
+            document.getElementById("speciesName").textContent =
+                bestMatch.species;
+
+            document.getElementById("scientificName").textContent =
+                bestMatch.accession;
+
+            document.getElementById("confidenceLevel").textContent =
+                "NCBI BLAST Match";
+
+            // TABLE
+            var tableBody =
+                document.getElementById("tableBody");
+
+            tableBody.innerHTML = "";
+
+            data.matches.forEach(function(match){
+
+                var tr = document.createElement("tr");
+
+                tr.innerHTML = `
+                    <td style="padding:12px;border:1px solid #ddd;">
+                        ${match.species}
+                    </td>
+
+                    <td style="padding:12px;border:1px solid #ddd;">
+                        ${match.accession}
+                    </td>
+
+                    <td style="padding:12px;border:1px solid #ddd;">
+                        ${match.length}
+                    </td>
+
+                    <td style="padding:12px;border:1px solid #ddd;">
+                        Real NCBI BLAST
+                    </td>
+                `;
+
+                tableBody.appendChild(tr);
+            });
+
+            switchTab("dna");
+
+        } catch(error){
+
+            console.error(error);
+
+            alert("NCBI BLAST request failed");
+        }
+    };
+
+    reader.readAsText(file);
+}
 
 // Score each spider species
 SPIDER_DNA_DATABASE.forEach(function(spider) {
@@ -1161,7 +1235,6 @@ return b.confidence - a.confidence;
 });
 
 return matches;
-}
 
 function analyzeDNASequence(sequence) {
 var seq = sequence.toUpperCase();

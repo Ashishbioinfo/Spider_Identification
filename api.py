@@ -36,7 +36,7 @@ except ImportError:
 
 # Set Entrez email (required by NCBI)
 if BIOPYTHON_AVAILABLE:
-    Entrez.email = "spider.ai.app@example.com"
+    Entrez.email = "ashish.a0890@gmail.com"
 
 app = Flask(__name__)
 CORS(app)

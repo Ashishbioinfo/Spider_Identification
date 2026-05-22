@@ -345,15 +345,15 @@ def blast_sequence():
             
             try:
                 # Set a timeout for the NCBI request (30 seconds)
-                socket.setdefaulttimeout(30)
+                socket.setdefaulttimeout(250)
                 
                 result_handle = NCBIWWW.qblast(
                     "blastn",                    # Program: nucleotide search
-                    "refseq_rna",                # Database: nucleotide database
+                    "nt",                # Database: nucleotide database
                     sequence,
                     entrez_query="Arachnida[Organism]",
                     expect=1e-3,
-                    hitlist_size=5,              # E-value threshold
+                    hitlist_size=15,              # E-value threshold
                     format_type="XML"
                 )
             except (socket.timeout, urllib.error.URLError, TimeoutError) as timeout_err:

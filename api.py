@@ -23,10 +23,15 @@ except ImportError:
 # Try to import BioPython for NCBI BLAST
 try:
     from Bio.Blast import NCBIWWW, NCBIXML
+    from Bio import Entrez
     BIOPYTHON_AVAILABLE = True
 except ImportError:
     BIOPYTHON_AVAILABLE = False
     print("⚠ BioPython not available - NCBI BLAST disabled")
+
+# Set Entrez email (required by NCBI)
+if BIOPYTHON_AVAILABLE:
+    Entrez.email = "spider.ai.app@example.com"
 
 app = Flask(__name__)
 CORS(app)
@@ -274,7 +279,6 @@ def blast_sequence():
                 "blastn",                    # Program: nucleotide search
                 "nt",                        # Database: nucleotide database
                 sequence,
-                email="spider.ai.app@example.com",  # Required by NCBI
                 expect=1e-6,                 # E-value threshold
                 format_type="XML"
             )

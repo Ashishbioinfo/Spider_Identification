@@ -19,12 +19,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application files
 COPY api.py .
 COPY setup_model.py .
-COPY model/ ./model/
-COPY dataset/ ./dataset/
 COPY frontend/ ./frontend/
 
-# Create uploads directory
-RUN mkdir -p uploads
+# Create required directories (dataset/model may be uploaded separately or generated)
+RUN mkdir -p uploads model dataset/spider_images
 
 # Expose port
 EXPOSE 5000

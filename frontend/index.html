@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Animal Identification - AI Powered</title>
+
+<style>
+
+* {
+margin: 0;
+padding: 0;
+box-sizing: border-box;
+}
+
+body {
+font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+background: linear-gradient(135deg, #2d3e50 0%, #34495e 100%);
+min-height: 100vh;
+padding: 40px 20px;
+position: relative;
+overflow-x: hidden;
+}
+
+/* Animated background particles */
+body::before {
+content: '';
+position: fixed;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+background-image: 
+  radial-gradient(circle at 20% 50%, rgba(255,255,255,0.1) 0%, transparent 50%),
+  radial-gradient(circle at 80% 80%, rgba(255,255,255,0.1) 0%, transparent 50%);
+pointer-events: none;
+z-index: 1;
+}
+
+.header {
+text-align: center;
+color: white;
+margin-bottom: 60px;
+position: relative;
+z-index: 2;
+}
+
+.header h1 {
+font-size: 48px;
+font-weight: bold;
+margin-bottom: 10px;
+text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+}
+
+.header p {
+font-size: 18px;
+opacity: 0.9;
+}
+
+.main-container {
+max-width: 1200px;
+margin: 0 auto;
+position: relative;
+z-index: 2;
+}
+
+.cards-container {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+gap: 30px;
+margin-bottom: 50px;
+}
+
+.card {
+background: white;
+border-radius: 15px;
+overflow: hidden;
+box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+transition: all 0.3s ease;
+cursor: pointer;
+transform: translateY(0);
+}
+
+.card:hover {
+transform: translateY(-10px);
+box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+}
+
+.card-icon {
+background: linear-gradient(135deg, #2d3e50 0%, #34495e 100%);
+color: white;
+padding: 40px;
+text-align: center;
+font-size: 18px;
+font-weight: bold;
+letter-spacing: 1px;
+border-bottom: 3px solid #1a252f;
+}
+
+.card-image {
+width: 100%;
+height: 250px;
+object-fit: cover;
+display: block;
+}
+
+.card-content {
+padding: 25px;
+text-align: center;
+}
+
+.card-content h2 {
+font-size: 28px;
+margin-bottom: 10px;
+color: #333;
+}
+
+.card-content p {
+color: #666;
+font-size: 14px;
+line-height: 1.5;
+margin-bottom: 20px;
+}
+
+.card-button {
+display: inline-block;
+padding: 12px 30px;
+background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+color: white;
+border: none;
+border-radius: 25px;
+cursor: pointer;
+font-size: 16px;
+font-weight: bold;
+transition: all 0.3s ease;
+}
+
+.card-button:hover {
+transform: scale(1.05);
+box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.selection-container {
+background: white;
+border-radius: 15px;
+padding: 40px;
+box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+margin-top: 50px;
+}
+
+.selection-container h2 {
+text-align: center;
+margin-bottom: 30px;
+color: #333;
+font-size: 28px;
+}
+
+.select-wrapper {
+text-align: center;
+margin-bottom: 30px;
+}
+
+.select-wrapper label {
+display: block;
+margin-bottom: 15px;
+color: #555;
+font-size: 16px;
+font-weight: bold;
+}
+
+select {
+width: 100%;
+max-width: 400px;
+padding: 15px;
+font-size: 16px;
+border: 2px solid #ddd;
+border-radius: 8px;
+background-color: white;
+color: #333;
+cursor: pointer;
+transition: all 0.3s ease;
+}
+
+select:focus {
+outline: none;
+border-color: #667eea;
+box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+select option {
+padding: 10px;
+}
+
+.button-group {
+text-align: center;
+}
+
+button {
+padding: 15px 40px;
+font-size: 18px;
+background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+color: white;
+border: none;
+border-radius: 8px;
+cursor: pointer;
+font-weight: bold;
+transition: all 0.3s ease;
+box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+}
+
+button:hover {
+transform: translateY(-2px);
+box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+}
+
+button:active {
+transform: translateY(0);
+}
+
+.info-section {
+background: rgba(255,255,255,0.95);
+border-radius: 15px;
+padding: 30px;
+margin-top: 50px;
+text-align: center;
+color: #555;
+}
+
+.info-section h3 {
+color: #667eea;
+margin-bottom: 15px;
+font-size: 22px;
+}
+
+.info-section p {
+line-height: 1.8;
+font-size: 15px;
+}
+
+@media (max-width: 768px) {
+.header h1 {
+font-size: 36px;
+}
+
+.cards-container {
+grid-template-columns: 1fr;
+gap: 20px;
+}
+
+.selection-container {
+padding: 20px;
+}
+
+select {
+max-width: 100%;
+}
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="header">
+<h1>Species Identification System</h1>
+<p>Enterprise-Grade AI-Powered Species Recognition Using Advanced Image Matching</p>
+</div>
+
+<div class="main-container">
+
+<!-- Animal Cards Section -->
+<div class="cards-container">
+
+<!-- Spider Card -->
+<div class="card">
+<div class="card-icon">Arachnida</div>
+<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 250'%3E%3Cdefs%3E%3ClinearGradient id='spiderGrad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23333333;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%23111111;stop-opacity:1' /%3E%3ClinearGradient id='spiderBody' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23704020;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%23402010;stop-opacity:1' /%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='400' height='250' fill='url(%23spiderGrad)'/%3E%3Ccircle cx='200' cy='75' r='28' fill='url(%23spiderBody)'/%3E%3Cellipse cx='200' cy='160' rx='45' ry='55' fill='url(%23spiderBody)' opacity='0.9'/%3E%3Cpath d='M170 95 Q140 70 110 60' stroke='%23704020' stroke-width='5' fill='none' stroke-linecap='round'/%3E%3Cpath d='M230 95 Q260 70 290 60' stroke='%23704020' stroke-width='5' fill='none' stroke-linecap='round'/%3E%3Cpath d='M160 120 Q120 110 90 120' stroke='%23704020' stroke-width='5' fill='none' stroke-linecap='round'/%3E%3Cpath d='M240 120 Q280 110 310 120' stroke='%23704020' stroke-width='5' fill='none' stroke-linecap='round'/%3E%3Cpath d='M150 180 Q110 200 100 230' stroke='%23704020' stroke-width='5' fill='none' stroke-linecap='round'/%3E%3Cpath d='M250 180 Q290 200 300 230' stroke='%23704020' stroke-width='5' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='195' cy='65' r='5' fill='%23FFD700'/%3E%3Ccircle cx='205' cy='65' r='5' fill='%23FFD700'/%3E%3C/svg%3E" alt="Spider" class="card-image">
+<div class="card-content">
+<h2>Spider Analysis</h2>
+<p>Advanced morphological classification of Arachnida specimens using feature-based image matching and comparative analysis.</p>
+<button class="card-button" onclick="selectAnimal('spider')">Begin Analysis</button>
+</div>
+</div>
+
+<!-- Frog Card -->
+<div class="card">
+<div class="card-icon">Amphibia</div>
+<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 250'%3E%3Cdefs%3E%3ClinearGradient id='frogGrad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%232d5f2e;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%23134d13;stop-opacity:1' /%3E%3ClinearGradient id='frogBody' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%235aad5a;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%232d7a2d;stop-opacity:1' /%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='400' height='250' fill='url(%23frogGrad)'/%3E%3Cellipse cx='200' cy='140' rx='60' ry='70' fill='url(%23frogBody)'/%3E%3Ccircle cx='170' cy='100' r='18' fill='%23FFFACD'/%3E%3Ccircle cx='170' cy='100' r='13' fill='%232d7a2d'/%3E%3Ccircle cx='170' cy='100' r='7' fill='%23000'/%3E%3Ccircle cx='230' cy='100' r='18' fill='%23FFFACD'/%3E%3Ccircle cx='230' cy='100' r='13' fill='%232d7a2d'/%3E%3Ccircle cx='230' cy='100' r='7' fill='%23000'/%3E%3Cellipse cx='145' cy='210' rx='20' ry='28' fill='%235aad5a'/%3E%3Cellipse cx='255' cy='210' rx='20' ry='28' fill='%235aad5a'/%3E%3Cpath d='M200 165 Q195 180 190 190' stroke='%23134d13' stroke-width='2' fill='none'/%3E%3Cpath d='M200 165 Q205 180 210 190' stroke='%23134d13' stroke-width='2' fill='none'/%3E%3C/svg%3E" alt="Frog" class="card-image">
+<div class="card-content">
+<h2>Amphibian Analysis</h2>
+<p>Taxonomic classification of Amphibian species utilizing advanced machine vision and morphological assessment techniques.</p>
+<button class="card-button" onclick="selectAnimal('frog')">Begin Analysis</button>
+</div>
+</div>
+
+<!-- Snail Card -->
+<div class="card">
+<div class="card-icon">Mollusca</div>
+<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 250'%3E%3Cdefs%3E%3ClinearGradient id='snailGrad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%238b7355;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%235b4c3d;stop-opacity:1' /%3E%3ClinearGradient id='snailShell' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23d4a574;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%23a0826d;stop-opacity:1' /%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='400' height='250' fill='url(%23snailGrad)'/%3E%3Cpath d='M200 55 Q175 80 170 125 Q168 160 185 200 Q210 225 235 200 Q252 160 250 125 Q245 80 200 55' fill='url(%23snailShell)' stroke='%238b6f5e' stroke-width='2'/%3E%3Ccircle cx='200' cy='110' r='12' fill='%23654321'/%3E%3Cpath d='M200 125 L195 165' stroke='%23704020' stroke-width='3' stroke-linecap='round'/%3E%3Cpath d='M200 125 L205 165' stroke='%23704020' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='192' cy='168' r='3' fill='%23000'/%3E%3Ccircle cx='208' cy='168' r='3' fill='%23000'/%3E%3Cellipse cx='200' cy='200' rx='35' ry='20' fill='%23704020' opacity='0.6'/%3E%3C/svg%3E" alt="Snail" class="card-image">
+<div class="card-content">
+<h2>Mollusk Analysis</h2>
+<p>Precision identification of Mollusca specimens through shell morphology analysis and species database matching.</p>
+<button class="card-button" onclick="selectAnimal('snail')">Begin Analysis</button>
+</div>
+</div>
+
+</div>
+
+<!-- Selection Container -->
+<div class="selection-container">
+
+<h2>Or Select an Animal Below</h2>
+
+<div class="select-wrapper">
+<label for="animal">Select Species Category:</label>
+<select id="animal">
+<option value="">-- Select Category --</option>
+<option value="spider">Spider</option>
+<option value="frog">Frog</option>
+<option value="snail">Snail</option>
+</select>
+</div>
+
+<div class="button-group">
+<button onclick="goToNextPage()">Continue to Identification</button>
+</div>
+
+</div>
+
+<!-- Info Section -->
+<div class="info-section">
+<h3>System Overview</h3>
+<p>The Species Identification System utilizes advanced feature-based image matching algorithms to analyze biological specimens. By employing ORB (Oriented FAST and Rotated BRIEF) feature extraction and comparative analysis against a reference dataset, the system provides accurate species classification with confidence metrics.</p>
+</div>
+
+</div>
+
+<script>
+
+function selectAnimal(animal) {
+document.getElementById("animal").value = animal;
+goToNextPage();
+}
+
+function goToNextPage(){
+
+var animal = document.getElementById("animal").value;
+
+if(animal === ""){
+alert("Please select an animal");
+return;
+}
+
+if(animal === "spider"){
+window.location.href = "spider.html";
+}
+
+if(animal === "frog"){
+window.location.href = "frog.html";
+}
+
+if(animal === "snail"){
+window.location.href = "snail.html";
+}
+
+}
+
+</script>
+
+</body>
+
+</html>

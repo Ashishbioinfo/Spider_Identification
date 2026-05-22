@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frog Identification</title>
+
+<style>
+
+* {
+margin: 0;
+padding: 0;
+box-sizing: border-box;
+}
+
+body {
+font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+background: linear-gradient(135deg, #2d3e50 0%, #34495e 100%);
+min-height: 100vh;
+padding: 40px 20px;
+position: relative;
+}
+
+body::before {
+content: '';
+position: fixed;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+background-image: 
+  radial-gradient(circle at 20% 50%, rgba(255,255,255,0.1) 0%, transparent 50%),
+  radial-gradient(circle at 80% 80%, rgba(255,255,255,0.1) 0%, transparent 50%);
+pointer-events: none;
+z-index: 1;
+}
+
+.nav-header {
+position: relative;
+z-index: 2;
+margin-bottom: 30px;
+}
+
+.nav-header a {
+display: inline-block;
+padding: 10px 20px;
+background: rgba(255,255,255,0.2);
+color: white;
+text-decoration: none;
+border-radius: 8px;
+font-weight: bold;
+transition: all 0.3s ease;
+}
+
+.nav-header a:hover {
+background: rgba(255,255,255,0.3);
+transform: translateX(-5px);
+}
+
+.container {
+max-width: 700px;
+background: white;
+padding: 50px;
+margin: 0 auto;
+border-radius: 20px;
+box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+position: relative;
+z-index: 2;
+}
+
+h1 {
+margin-bottom: 20px;
+font-size: 36px;
+color: #2d3e50;
+text-align: center;
+}
+
+.subtitle {
+text-align: center;
+color: #666;
+margin-bottom: 30px;
+font-size: 16px;
+}
+
+.input-section {
+background: #f8f9fa;
+padding: 25px;
+border-radius: 15px;
+margin-bottom: 20px;
+border-left: 5px solid #52c41a;
+}
+
+.input-section h3 {
+color: #52c41a;
+margin-bottom: 15px;
+font-size: 18px;
+}
+
+.input-section p {
+color: #666;
+margin-bottom: 15px;
+}
+
+.file-input-wrapper {
+position: relative;
+overflow: hidden;
+display: inline-block;
+width: 100%;
+}
+
+.file-input-wrapper input[type="file"] {
+position: absolute;
+left: -9999px;
+}
+
+.file-input-label {
+display: flex;
+align-items: center;
+justify-content: center;
+width: 100%;
+padding: 40px;
+background: white;
+border: 3px dashed #52c41a;
+border-radius: 10px;
+cursor: pointer;
+transition: all 0.3s ease;
+font-weight: bold;
+color: #52c41a;
+}
+
+.file-input-label:hover {
+background: #f5fff5;
+border-color: #45a049;
+}
+
+.file-input-label.active {
+background: #f5fff5;
+border-color: #52c41a;
+}
+
+.button-group {
+display: flex;
+gap: 15px;
+justify-content: center;
+margin-top: 30px;
+}
+
+button {
+padding: 15px 40px;
+font-size: 16px;
+background: linear-gradient(135deg, #52c41a 0%, #45a049 100%);
+color: white;
+border: none;
+border-radius: 10px;
+cursor: pointer;
+font-weight: bold;
+transition: all 0.3s ease;
+box-shadow: 0 5px 15px rgba(82, 196, 26, 0.3);
+}
+
+button:hover {
+transform: translateY(-2px);
+box-shadow: 0 8px 20px rgba(82, 196, 26, 0.4);
+}
+
+button:active {
+transform: translateY(0);
+}
+
+button.secondary {
+background: #6c757d;
+box-shadow: 0 5px 15px rgba(108, 117, 125, 0.3);
+}
+
+button.secondary:hover {
+box-shadow: 0 8px 20px rgba(108, 117, 125, 0.4);
+}
+
+#result {
+margin-top: 30px;
+padding: 20px;
+background: #f8f9fa;
+border-radius: 10px;
+border-left: 5px solid #52c41a;
+color: #333;
+text-align: left;
+min-height: 50px;
+}
+
+.loading {
+display: inline-block;
+width: 20px;
+height: 20px;
+border: 3px solid #f3f3f3;
+border-top: 3px solid #52c41a;
+border-radius: 50%;
+animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+0% { transform: rotate(0deg); }
+100% { transform: rotate(360deg); }
+}
+
+.gallery-section {
+margin-top: 50px;
+padding-top: 40px;
+border-top: 2px solid #e0e0e0;
+}
+
+.gallery-section h3 {
+font-size: 24px;
+color: #2d3e50;
+margin-bottom: 10px;
+text-align: center;
+}
+
+.gallery-section > p {
+text-align: center;
+color: #666;
+margin-bottom: 30px;
+font-size: 14px;
+}
+
+.gallery-grid {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+gap: 20px;
+margin-top: 20px;
+}
+
+.gallery-item {
+text-align: center;
+}
+
+.gallery-image {
+width: 100%;
+aspect-ratio: 1;
+border-radius: 12px;
+overflow: hidden;
+box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+display: flex;
+align-items: center;
+justify-content: center;
+margin-bottom: 12px;
+transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.gallery-image:hover {
+transform: translateY(-4px);
+box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.gallery-image svg {
+width: 80%;
+height: 80%;
+}
+
+.gallery-item p {
+font-size: 14px;
+font-weight: 600;
+color: #333;
+}
+
+/* Tab Navigation Styles */
+.tabs-navigation {
+display: flex;
+gap: 10px;
+margin-bottom: 20px;
+border-bottom: 2px solid #e0e0e0;
+}
+
+.tab-button {
+padding: 12px 24px;
+background: transparent;
+color: #666;
+border: none;
+border-bottom: 3px solid transparent;
+cursor: pointer;
+font-weight: 600;
+font-size: 14px;
+transition: all 0.3s ease;
+box-shadow: none;
+}
+
+.tab-button:hover {
+color: #2d3e50;
+border-bottom-color: #2d3e50;
+transform: none;
+}
+
+.tab-button.active {
+color: #52c41a;
+border-bottom-color: #52c41a;
+}
+
+.tab-content {
+display: none;
+animation: fadeIn 0.3s ease;
+}
+
+.tab-content.active {
+display: block;
+}
+
+@keyframes fadeIn {
+from {
+opacity: 0;
+}
+to {
+opacity: 1;
+}
+}
+
+@media (max-width: 768px) {
+.gallery-grid {
+grid-template-columns: repeat(2, 1fr);
+}
+
+.tabs-navigation {
+flex-wrap: wrap;
+}
+
+.tab-button {
+padding: 10px 16px;
+font-size: 12px;
+}
+}
+
+@media (max-width: 768px) {
+.container {
+padding: 25px;
+}
+
+h1 {
+font-size: 28px;
+}
+
+button {
+width: 100%;
+}
+
+.button-group {
+flex-direction: column;
+}
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="nav-header">
+<a href="index.html">← Back to Home</a>
+</div>
+
+<div class="container">
+
+<h1>Frog Species Analysis</h1>
+<p class="subtitle">Upload an image or DNA sequence for scientific species identification</p>
+
+<!-- Input Type Selector -->
+<div class="input-type-selector">
+<h3>Select Input Type</h3>
+<div class="radio-group">
+<label>
+<input type="radio" name="inputType" value="image" checked onchange="toggleInputType()"> 
+Upload Image
+</label>
+<label>
+<input type="radio" name="inputType" value="dna" onchange="toggleInputType()">
+DNA Sequence
+</label>
+</div>
+</div>
+
+<!-- Image Input Section -->
+<div id="imageInput" class="input-section">
+<h3>Image Upload</h3>
+<p>Upload a clear photograph of the frog specimen for analysis</p>
+<div class="file-input-wrapper">
+<input type="file" id="animalImage" accept="image/*" onchange="updateFileName('animalImage')">
+<label for="animalImage" class="file-input-label" id="imageLabel">
+<span>Select or drag image file</span>
+<span style="font-size: 12px; color: #999; margin-top: 5px;">Supported formats: JPG, PNG, GIF, BMP</span>
+</label>
+</div>
+</div>
+
+<!-- DNA Input Section -->
+<div id="dnaInput" class="input-section hidden">
+<h3>DNA Sequence Upload</h3>
+<p>Upload a DNA sequence file (.txt, .fasta, .fa) for genomic analysis</p>
+<div class="file-input-wrapper">
+<input type="file" id="dnaSequence" accept=".txt,.fasta,.fa" onchange="updateFileName('dnaSequence')">
+<label for="dnaSequence" class="file-input-label" id="dnaLabel">
+<span>Select or drag sequence file</span>
+<span style="font-size: 12px; color: #999; margin-top: 5px;">Supported formats: TXT, FASTA, FA</span>
+</label>
+</div>
+</div>
+
+<!-- Result Section -->
+<div id="resultContainer" style="display:none; margin-top: 30px;">
+<!-- Tabs Navigation -->
+<div class="tabs-navigation">
+<button class="tab-button active" onclick="switchTab('comparison')">Comparison View</button>
+<button class="tab-button" onclick="switchTab('report')">Report</button>
+<button class="tab-button" onclick="switchTab('table')">Match Table</button>
+</div>
+
+<!-- Tab Content -->
+<div id="comparison" class="tab-content active">
+<h3 style="margin-bottom: 20px; color: #333;">Analysis Complete - Classification Identified</h3>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+<div><strong>Uploaded Specimen:</strong><br><img id="uploadedImage" src="" style="width: 100%; border-radius: 8px; border: 1px solid #ddd;"></div>
+<div><strong>Reference Match:</strong><br><img id="referenceImage" src="" style="width: 100%; border-radius: 8px; border: 1px solid #ddd;"></div>
+</div>
+<div style="margin-top: 20px; background: #f8f9fa; padding: 15px; border-radius: 8px;">
+<p><strong>Classification:</strong> <span id="speciesName"></span></p>
+<p><strong>Scientific Name:</strong> <span id="scientificName"></span></p>
+<p><strong>Confidence Level:</strong> <span id="confidenceLevel"></span></p>
+</div>
+</div>
+
+<!-- Report Tab -->
+<div id="report" class="tab-content" style="display:none;">
+<h3 style="margin-bottom: 20px; color: #333;">Analysis Report</h3>
+<div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 5px solid #52c41a;">
+<p><strong>Analysis Date:</strong> <span id="analysisDate"></span></p>
+<p><strong>Specimen Type:</strong> <span id="specimenType"></span></p>
+<p><strong>Classification Result:</strong> <span id="classificationResult"></span></p>
+<p><strong>Confidence Score:</strong> <span id="reportConfidence"></span></p>
+<p><strong>Morphological Features:</strong></p>
+<ul id="morphologicalFeatures" style="margin-left: 20px; margin-top: 10px;"></ul>
+<p style="margin-top: 20px;"><strong>Analysis Method:</strong> ORB (Oriented FAST and Rotated BRIEF) Feature-Based Image Matching</p>
+</div>
+<button onclick="generatePDF()" style="margin-top: 20px; padding: 10px 20px; background: #52c41a; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">Download as PDF</button>
+</div>
+
+<!-- Table Tab -->
+<div id="table" class="tab-content" style="display:none;">
+<h3 style="margin-bottom: 20px; color: #333;">Species Match Results</h3>
+<table id="matchTable" style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+<thead>
+<tr style="background: #52c41a; color: white;">
+<th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Species Name</th>
+<th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Match Score</th>
+<th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Status</th>
+</tr>
+</thead>
+<tbody id="tableBody">
+</tbody>
+</table>
+</div>
+</div>
+
+<!-- Buttons -->
+<div class="button-group">
+<button onclick="identifyFrog()">Analyze Sample</button>
+<button class="secondary" onclick="clearForm()">Clear</button>
+</div>
+
+<!-- Sample Gallery Section -->
+<div class="gallery-section">
+<h3>Reference Specimen Gallery</h3>
+<p>Database of reference specimens used for comparative analysis</p>
+<div class="gallery-grid">
+<div class="gallery-item">
+<div class="gallery-image">
+<img src="https://images.unsplash.com/photo-1597628735542-9bc5dace1a26?w=300&h=300&fit=crop" alt="Tree Frog">
+</div>
+<p>Tree Frog</p>
+</div>
+
+<div class="gallery-item">
+<div class="gallery-image">
+<img src="https://images.unsplash.com/photo-1604429521481-f4ca13c56fad?w=300&h=300&fit=crop" alt="Pond Frog">
+</div>
+<p>Pond Frog</p>
+</div>
+
+<div class="gallery-item">
+<div class="gallery-image">
+<img src="https://images.unsplash.com/photo-1539833088865-ec6d8ba8e79f?w=300&h=300&fit=crop" alt="Ground Frog">
+</div>
+<p>Ground Frog</p>
+</div>
+
+<div class="gallery-item">
+<div class="gallery-image">
+<img src="https://images.unsplash.com/photo-1500382017468-f049863256da?w=300&h=300&fit=crop" alt="Water Frog">
+</div>
+<p>Water Frog</p>
+</div>
+</div>
+</div>
+
+</div>
+
+<script>
+
+function updateFileName() {
+var input = document.getElementById("frogImage");
+var label = document.getElementById("imageLabel");
+if (input.files && input.files[0]) {
+label.textContent = input.files[0].name;
+label.classList.add("active");
+}
+}
+
+function clearForm(){
+document.getElementById("frogImage").value = "";
+document.getElementById("imageLabel").textContent = "Click to upload or drag & drop";
+document.getElementById("imageLabel").classList.remove("active");
+document.getElementById("resultContainer").style.display = "none";
+}
+
+function identifyFrog(){
+var resultContainer = document.getElementById("resultContainer");
+var file = document.getElementById("frogImage").files[0];
+
+if(!file){
+alert("Error: Please select an image file");
+return;
+}
+
+resultContainer.style.display = "block";
+
+// Create image preview
+var reader = new FileReader();
+reader.onload = function(e) {
+var uploadedImageUrl = e.target.result;
+
+// Mock analysis for frogs
+setTimeout(function(){
+document.getElementById("uploadedImage").src = uploadedImageUrl;
+document.getElementById("referenceImage").src = "data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 300 250%22%3E%3Crect fill=%22%2352c41a%22 width=%22300%22 height=%22250%22/%3E%3Ctext x=%22150%22 y=%22125%22 font-size=%2220%22 text-anchor=%22middle%22 fill=%22white%22%3E[Reference Specimen]%3C/text%3E%3C/svg%3E";
+document.getElementById("speciesName").textContent = "Tree Frog (Hyla arborea)";
+document.getElementById("scientificName").textContent = "Hylidae";
+document.getElementById("confidenceLevel").textContent = "87.5%";
+
+var now = new Date();
+document.getElementById("analysisDate").textContent = now.toLocaleDateString() + " " + now.toLocaleTimeString();
+document.getElementById("specimenType").textContent = "Frog (Amphibia)";
+document.getElementById("classificationResult").textContent = "Tree Frog - Hyla arborea";
+document.getElementById("reportConfidence").textContent = "87.5%";
+
+var features = [
+"Body size: Medium (3-5 cm)",
+"Coloration: Vibrant green",
+"Skin texture: Smooth",
+"Distinctive eye rings present",
+"Toe pads adapted for climbing",
+"Feature match confidence: 87.5%"
+];
+var featuresList = document.getElementById("morphologicalFeatures");
+featuresList.innerHTML = "";
+features.forEach(function(feature){
+var li = document.createElement("li");
+li.textContent = feature;
+featuresList.appendChild(li);
+});
+
+var tableBody = document.getElementById("tableBody");
+tableBody.innerHTML = "";
+var topFrogMatches = [
+{species: "Tree Frog (Hyla arborea)", score: 87.5},
+{species: "Pond Frog (Rana temporaria)", score: 82.3},
+{species: "Ground Frog (Rana graeca)", score: 75.8},
+{species: "Water Frog (Pelophylax ridibundus)", score: 68.2},
+{species: "Reed Frog (Hyperolius viridiflavus)", score: 62.1}
+];
+
+topFrogMatches.forEach(function(row){
+var tr = document.createElement("tr");
+var status = row.score >= 95 ? "Ideal Match" : (row.score >= 70 ? "Strong Match" : "Weak Match");
+var statusColor = row.score >= 95 ? "#4caf50" : (row.score >= 70 ? "#ff9800" : "#f44336");
+tr.innerHTML = "<td style='padding: 12px; border: 1px solid #ddd;'>" + row.species + "</td>" +
+"<td style='padding: 12px; border: 1px solid #ddd;'>" + row.score + "%</td>" +
+"<td style='padding: 12px; border: 1px solid #ddd;'><span style='background: " + statusColor + "; color: white; padding: 4px 8px; border-radius: 4px;'>" + status + "</span></td>";
+tableBody.appendChild(tr);
+});
+
+switchTab('comparison');
+}, 1500);
+};
+reader.readAsDataURL(file);
+}
+
+function switchTab(tabName){
+var contents = document.querySelectorAll('.tab-content');
+contents.forEach(function(content){
+content.classList.remove('active');
+});
+
+var buttons = document.querySelectorAll('.tab-button');
+buttons.forEach(function(btn){
+btn.classList.remove('active');
+});
+
+document.getElementById(tabName).classList.add('active');
+if(event && event.target){
+event.target.classList.add('active');
+}
+}
+
+function generatePDF(){
+alert("PDF generation feature would be implemented here using a library like jsPDF. Report includes:\n\n- Analysis Date and Time\n- Specimen Type and Classification\n- Confidence Score\n- Morphological Features\n- Analysis Method Details");
+}
+
+</script>
+
+</body>
+</html>

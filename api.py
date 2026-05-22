@@ -344,34 +344,54 @@ def blast_sequence():
             print(f"Querying NCBI BLAST with {len(sequence)} bp sequence...")
             
             try:
+                # Set a timeout for the NCBI request (30 seconds)
+                socket.setdefaulttimeout(30)
+                
                 result_handle = NCBIWWW.qblast(
                     "blastn",                    # Program: nucleotide search
                     "nt",                        # Database: nucleotide database
                     sequence,
                     expect=1e-3,
-                    hitlist_size=5,                 # E-value threshold
+                    hitlist_size=5,              # E-value threshold
                     format_type="XML"
                 )
+            except (socket.timeout, urllib.error.URLError, TimeoutError) as timeout_err:
+                print(f"NCBI BLAST timeout: {type(timeout_err).__name__}")
+                return jsonify({
+                    'success': False,
+                    'message': 'NCBI BLAST service is currently unavailable or slow. Please try again in a few moments.',
+                    'error_type': 'timeout'
+                }), 503
             except Exception as qblast_err:
                 print(f"NCBI qblast submission error: {type(qblast_err).__name__}: {str(qblast_err)}")
                 import traceback
                 traceback.print_exc()
                 return jsonify({
                     'success': False,
-                    'message': f'Failed to submit to NCBI BLAST: {str(qblast_err)}'
+                    'message': f'Failed to submit to NCBI BLAST: {str(qblast_err)}',
+                    'error_type': 'submission'
                 }), 502
             
             print("NCBI BLAST submission successful, reading results...")
             
             try:
-                # Read the response into memory
+                # Read the response into memory (with timeout)
+                socket.setdefaulttimeout(30)
                 blast_response = result_handle.read()
                 print(f"BLAST response size: {len(blast_response)} bytes")
+            except (socket.timeout, urllib.error.URLError, TimeoutError) as timeout_err:
+                print(f"NCBI BLAST response read timeout: {type(timeout_err).__name__}")
+                return jsonify({
+                    'success': False,
+                    'message': 'NCBI BLAST response timeout. Please try again in a few moments.',
+                    'error_type': 'response_timeout'
+                }), 503
             except Exception as read_err:
                 print(f"Error reading BLAST response: {type(read_err).__name__}: {str(read_err)}")
                 return jsonify({
                     'success': False,
-                    'message': f'Error reading NCBI BLAST response: {str(read_err)}'
+                    'message': f'Error reading NCBI BLAST response: {str(read_err)}',
+                    'error_type': 'read'
                 }), 502
             
             try:

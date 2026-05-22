@@ -8,7 +8,7 @@ import json
 from werkzeug.utils import secure_filename
 import time
 import xml.etree.ElementTree as ET
-from io import StringIO
+from io import StringIO, BytesIO
 import math
 
 # Try to import TensorFlow, but continue if it fails
@@ -275,6 +275,8 @@ def blast_sequence():
         try:
             # Submit sequence to NCBI BLAST (nucleotide database, blastn)
             # Using nucleotide BLAST (blastn) for spider DNA queries
+            print(f"Querying NCBI BLAST with {len(sequence)} bp sequence...")
+            
             result_handle = NCBIWWW.qblast(
                 "blastn",                    # Program: nucleotide search
                 "nt",                        # Database: nucleotide database
@@ -283,14 +285,24 @@ def blast_sequence():
                 format_type="XML"
             )
             
+            print("NCBI BLAST submission successful, reading results...")
+            
+            # Read the response into memory
+            blast_response = result_handle.read()
+            print(f"BLAST response size: {len(blast_response)} bytes")
+            
             # Parse BLAST results
-            blast_results = NCBIXML.read(result_handle)
+            blast_results = NCBIXML.read(BytesIO(blast_response))
+            
+            print(f"BLAST parsing complete, processing alignments...")
             
             # Extract top 10 spider matches
             matches = []
             seen_species = set()
+            alignment_count = 0
             
             for alignment in blast_results.alignments:
+                alignment_count += 1
                 # Extract species name from NCBI description
                 description = alignment.title
                 
@@ -301,11 +313,6 @@ def blast_sequence():
                 
                 # Clean up the species name
                 species_name = species_info.strip()
-                
-                # Filter for spider-related hits
-                spider_keywords = ['spider', 'arachnida', 'araneae', 'salticidae', 
-                                 'lycosidae', 'araneidae', 'linyphiidae', 'thomisidae']
-                is_spider = any(keyword in species_name.lower() for keyword in spider_keywords)
                 
                 # Get HSP (High Scoring Pair) information
                 for hsp in alignment.hsps:
@@ -336,7 +343,7 @@ def blast_sequence():
                         'e_value': float(e_value),
                         'confidence': round(confidence, 2),
                         'bit_score': round(hsp.bits, 2),
-                        'ncbi_url': f"https://www.ncbi.nlm.nih.gov/protein/{alignment.accession}"
+                        'ncbi_url': f"https://www.ncbi.nlm.nih.gov/nucleotide/{alignment.accession}"
                     }
                     
                     matches.append(match)
@@ -345,11 +352,13 @@ def blast_sequence():
                 if len(matches) >= 10:
                     break
             
+            print(f"Processed {alignment_count} alignments, found {len(matches)} matches")
+            
             # If we have fewer than 10 results, it's still valid
             if not matches:
                 return jsonify({
                     'success': False,
-                    'message': 'No spider sequences found in NCBI BLAST results'
+                    'message': f'No sequences found in NCBI BLAST results (checked {alignment_count} alignments)'
                 }), 404
             
             return jsonify({
@@ -357,11 +366,13 @@ def blast_sequence():
                 'matches': matches,
                 'total_matches': len(matches),
                 'sequence_length': len(sequence),
-                'message': f'Found {len(matches)} matching spider sequences'
+                'message': f'Found {len(matches)} matching sequences'
             })
         
         except Exception as blast_error:
-            print(f"NCBI BLAST Error: {str(blast_error)}")
+            print(f"NCBI BLAST Error: {type(blast_error).__name__}: {str(blast_error)}")
+            import traceback
+            traceback.print_exc()
             return jsonify({
                 'success': False,
                 'message': f'NCBI BLAST Error: {str(blast_error)}'

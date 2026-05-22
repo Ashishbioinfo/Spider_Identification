@@ -995,8 +995,28 @@ body: JSON.stringify({
 sequence: sequence
 })
 })
-.then(response => response.json())
+.then(response => {
+console.log('BLAST response status:', response.status);
+console.log('BLAST response headers:', response.headers);
+if(!response.ok){
+return response.text().then(text => {
+throw new Error('HTTP ' + response.status + ': ' + text);
+});
+}
+return response.text().then(text => {
+console.log('BLAST raw response:', text);
+if(!text){
+throw new Error('Empty response from server');
+}
+try {
+return JSON.parse(text);
+} catch(e){
+throw new Error('Invalid JSON response: ' + text.substring(0, 200));
+}
+});
+})
 .then(data => {
+console.log('Parsed BLAST data:', data);
 document.getElementById("loadingWatcher").style.display = "none";
 document.getElementById("tabsContainer").style.display = "block";
 
@@ -1008,9 +1028,9 @@ alert("Error: " + (data.message || "No spider matches found"));
 }
 })
 .catch(error => {
-console.error('BLAST Error:', error);
+console.error('BLAST Error details:', error);
 document.getElementById("loadingWatcher").style.display = "none";
-alert("Error querying NCBI BLAST: " + error.message);
+alert("Error querying NCBI BLAST:\n" + error.message);
 });
 }
 

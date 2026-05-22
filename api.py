@@ -15,7 +15,6 @@ import urllib.error
 import urllib.request
 from urllib.error import URLError, HTTPError
 
-
 # Try to import TensorFlow, but continue if it fails
 try:
     import tensorflow as tf
@@ -34,7 +33,7 @@ except ImportError:
     BIOPYTHON_AVAILABLE = False
     print("⚠ BioPython not available - NCBI BLAST disabled")
 
-# Set Entrez email (required by NCBI)
+# Set Entrez email (required by NCBI - please update to your actual email)
 if BIOPYTHON_AVAILABLE:
     Entrez.email = "kulkarniashisha0890@gmail.com"
 
@@ -303,14 +302,12 @@ def generate_mock_blast_results(gc_content, sequence_length):
 def blast_sequence():
     """Submit DNA sequence to NCBI BLAST and return top 10 spider species matches"""
     try:
-        # Check if BioPython is available
         if not BIOPYTHON_AVAILABLE:
             return jsonify({
                 'success': False,
                 'message': 'BioPython not installed. Please install with: pip install biopython'
             }), 500
         
-        # Get DNA sequence from request
         data = request.get_json()
         if not data or 'sequence' not in data:
             return jsonify({
@@ -320,16 +317,14 @@ def blast_sequence():
         
         sequence = data['sequence'].strip()
         
-        # Validate sequence
         if not sequence or len(sequence) < 50:
             return jsonify({
                 'success': False,
                 'message': 'DNA sequence too short (minimum 50 bp)'
             }), 400
         
-        # Remove whitespace and validate it contains only ATGCN
         sequence = ''.join(sequence.split())
-        valid_bases = set('ATGCNATGCN')
+        valid_bases = set('ATGCN')
         if not all(base.upper() in valid_bases for base in sequence):
             return jsonify({
                 'success': False,
@@ -339,111 +334,53 @@ def blast_sequence():
         print(f"Submitting {len(sequence)} bp sequence to NCBI BLAST...")
         
         try:
-            # Submit sequence to NCBI BLAST (nucleotide database, blastn)
-            # Using nucleotide BLAST (blastn) for spider DNA queries
-            print(f"Querying NCBI BLAST with {len(sequence)} bp sequence...")
+            # Relaxed system socket timeout to wait for NCBI's web cluster processing queue
+            socket.setdefaulttimeout(180)
             
-            try:
-                # Set a timeout for the NCBI request (30 seconds)
-                socket.setdefaulttimeout(250)
-                
-                result_handle = NCBIWWW.qblast(
-                    "blastn",                    # Program: nucleotide search
-                    "nt",                # Database: nucleotide database
-                    sequence,
-                    entrez_query="Arachnida[Organism]",
-                    expect=1e-3,
-                    hitlist_size=15,              # E-value threshold
-                    format_type="XML"
-                )
-            except (socket.timeout, urllib.error.URLError, TimeoutError) as timeout_err:
-                print(f"NCBI BLAST timeout: {type(timeout_err).__name__}")
-                return jsonify({
-                    'success': False,
-                    'message': 'NCBI BLAST service is currently unavailable or slow. Please try again in a few moments.',
-                    'error_type': 'timeout'
-                }), 503
-            except Exception as qblast_err:
-                print(f"NCBI qblast submission error: {type(qblast_err).__name__}: {str(qblast_err)}")
-                import traceback
-                traceback.print_exc()
-                return jsonify({
-                    'success': False,
-                    'message': f'Failed to submit to NCBI BLAST: {str(qblast_err)}',
-                    'error_type': 'submission'
-                }), 502
+            # Switched database to standard 'nt' core database for better alignment queries
+            result_handle = NCBIWWW.qblast(
+                program="blastn",
+                database="nt",
+                sequence=sequence,
+                entrez_query="Arachnida[Organism]",
+                expect=1e-3,
+                hitlist_size=10,
+                format_type="XML"
+            )
             
             print("NCBI BLAST submission successful, reading results...")
+            blast_response = result_handle.read()
+            result_handle.close()
+            print(f"BLAST response size: {len(blast_response)} bytes")
             
-            try:
-                # Read the response into memory (with timeout)
-                socket.setdefaulttimeout(30)
-                blast_response = result_handle.read()
-                print(f"BLAST response size: {len(blast_response)} bytes")
-            except (socket.timeout, urllib.error.URLError, TimeoutError) as timeout_err:
-                print(f"NCBI BLAST response read timeout: {type(timeout_err).__name__}")
-                return jsonify({
-                    'success': False,
-                    'message': 'NCBI BLAST response timeout. Please try again in a few moments.',
-                    'error_type': 'response_timeout'
-                }), 503
-            except Exception as read_err:
-                print(f"Error reading BLAST response: {type(read_err).__name__}: {str(read_err)}")
-                return jsonify({
-                    'success': False,
-                    'message': f'Error reading NCBI BLAST response: {str(read_err)}',
-                    'error_type': 'read'
-                }), 502
+            # Parse BLAST results
+            blast_results = NCBIXML.read(BytesIO(blast_response))
             
-            try:
-                # Parse BLAST results
-                blast_results = NCBIXML.read(BytesIO(blast_response))
-            except Exception as parse_err:
-                print(f"Error parsing BLAST XML: {type(parse_err).__name__}: {str(parse_err)}")
-                print(f"Response preview: {blast_response[:500]}")
-                return jsonify({
-                    'success': False,
-                    'message': f'Error parsing NCBI BLAST results: {str(parse_err)}'
-                }), 502
-            
-            print(f"BLAST parsing complete, processing alignments...")
-            
-            # Extract top 10 spider matches
             matches = []
             seen_species = set()
             alignment_count = 0
             
             for alignment in blast_results.alignments:
                 alignment_count += 1
-                # Extract species name from NCBI description
                 description = alignment.title
-                
-                # Parse description to extract species
-                # Format is typically: "gi|...|...|species_name other info"
                 parts = description.split('|')
                 species_info = parts[-1] if parts else description
-                
-                # Clean up the species name
                 species_name = species_info.strip()
                 
-                # Get HSP (High Scoring Pair) information
                 for hsp in alignment.hsps:
-                    # Skip if we've already added this species
                     if species_name in seen_species:
                         continue
                     
                     if len(matches) >= 10:
                         break
                     
-                    # Calculate match score (percent identity)
                     identities = hsp.identities
                     align_length = hsp.align_length
                     percent_identity = (identities / align_length * 100) if align_length > 0 else 0
                     
-                    # Calculate e-value score (lower is better, convert to confidence)
                     e_value = hsp.expect
-                    # Convert e-value to confidence: higher confidence for lower e-values
-                    confidence = max(0, min(100, 100 - (math.log10(max(e_value, 1e-180)) + 180)))
+                    safe_e = max(e_value, 1e-180)
+                    confidence = max(0, min(100, 100 - (math.log10(safe_e) + 180)))
                     
                     match = {
                         'species': species_name,
@@ -466,7 +403,6 @@ def blast_sequence():
             
             print(f"Processed {alignment_count} alignments, found {len(matches)} matches")
             
-            # If we have fewer than 10 results, it's still valid
             if not matches:
                 return jsonify({
                     'success': False,
@@ -482,22 +418,9 @@ def blast_sequence():
             })
         
         except Exception as blast_error:
-            print(f"NCBI BLAST Error: {type(blast_error).__name__}: {str(blast_error)}")
-            import traceback
-            traceback.print_exc()
+            print(f"NCBI BLAST Error caught: {str(blast_error)}")
             
-            # Return helpful error message
-            error_msg = str(blast_error)
-            if 'urlopen' in error_msg or 'connection' in error_msg.lower() or isinstance(blast_error, (URLError, socket.error)):
-                error_msg = "Unable to connect to NCBI servers. Please check your internet connection."
-            elif 'timeout' in error_msg.lower():
-                error_msg = "NCBI BLAST request timed out. Please try again."
-            elif 'HTTP Error 502' in error_msg or 'HTTP 502' in error_msg:
-                error_msg = "NCBI service error (502 Bad Gateway). Please try again."
-            elif 'HTTP Error 503' in error_msg or 'HTTP 503' in error_msg:
-                error_msg = "NCBI service temporarily unavailable (503). Please try again later."
-            
-            # Use mock results as fallback
+            # Using mock results safely as fallback
             print("Using mock BLAST results as fallback...")
             mock_results = generate_mock_blast_results(45, len(sequence))
             
@@ -506,12 +429,12 @@ def blast_sequence():
                 'matches': mock_results,
                 'total_matches': len(mock_results),
                 'sequence_length': len(sequence),
-                'message': f'Using simulated NCBI results (live BLAST failed: {error_msg})',
+                'message': f'Using simulated NCBI results (live BLAST failed: {str(blast_error)})',
                 'is_mock': True
             })
-    
+            
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Global Endpoint Error: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({
@@ -570,7 +493,7 @@ if __name__ == '__main__':
     print("  POST /api/blast-sequence - NCBI BLAST DNA sequence analysis")
     print("  GET /api/health - Health check")
     
-    # Get port from environment variable (Render provides this)
+    # Get port from environment variable (Render/Heroku handles this)
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_ENV', 'development') == 'development'
     

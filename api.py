@@ -351,7 +351,7 @@ def blast_sequence():
                     "blastn",                    # Program: nucleotide search
                     "refseq_rna",                # Database: nucleotide database
                     sequence,
-                    entrez_query="Arachnida[Organism]"
+                    entrez_query="Arachnida[Organism]",
                     expect=1e-3,
                     hitlist_size=5,              # E-value threshold
                     format_type="XML"

@@ -35,14 +35,14 @@ except ImportError:
 
 # Set Entrez email (required by NCBI - please update to your actual email)
 if BIOPYTHON_AVAILABLE:
-    Entrez.email = "spider.ai.app@example.com"
+    Entrez.email = "kulkarniashish@gmail.com"
 
 app = Flask(__name__)
 CORS(app)
 
 UPLOAD_FOLDER = 'uploads'
 DATASET_FOLDER = 'dataset/spider_images'
-MODEL_PATH = 'model/spider_model.h5'  # Path to your Keras model
+MODEL_PATH = 'model/spider_model.keras'  # Path to your Keras model
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp'}
 
 # Create uploads folder if it doesn't exist
@@ -57,32 +57,52 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def load_dataset_images():
-    """Load spider species names from dataset folder for class mapping"""
+    """Load spider species names from trained model's class_names.json"""
     global CLASS_NAMES
-    species_set = set()
     
+    # First, try to load from the trained model's class_names.json file
+    class_names_path = 'model/class_names.json'
+    if os.path.exists(class_names_path):
+        try:
+            with open(class_names_path, 'r') as f:
+                CLASS_NAMES = json.load(f)
+            print(f"\nLoaded classes from trained model: {class_names_path}")
+            print(f"Spider species classes: {CLASS_NAMES}")
+            print(f"Total classes: {len(CLASS_NAMES)}")
+            return CLASS_NAMES
+        except Exception as e:
+            print(f"Error loading class_names.json: {e}")
+    
+    # Fallback: Try to load from dataset folder structure (for subdirectories)
+    species_set = set()
     if os.path.exists(DATASET_FOLDER):
-        for filename in os.listdir(DATASET_FOLDER):
-            if allowed_file(filename):
-                # Extract species name from filename
-                # Expected format: species_name_number.extension
-                name_parts = filename.rsplit('.', 1)[0].split('_')
-                
-                # Remove the trailing number
-                if name_parts[-1].isdigit():
-                    species_name = ' '.join(name_parts[:-1]).title()
-                else:
-                    species_name = ' '.join(name_parts).title()
-                
-                species_set.add(species_name)
+        # Look for subdirectories (organized by species)
+        for item in os.listdir(DATASET_FOLDER):
+            item_path = os.path.join(DATASET_FOLDER, item)
+            if os.path.isdir(item_path):
+                # Subdirectory found - use as species name
+                species_set.add(item)
+        
+        # If no subdirectories, look for individual image files
+        if len(species_set) == 0:
+            for filename in os.listdir(DATASET_FOLDER):
+                if allowed_file(filename):
+                    # Extract species name from filename
+                    name_parts = filename.rsplit('.', 1)[0].split('_')
+                    if name_parts[-1].isdigit():
+                        species_name = ' '.join(name_parts[:-1]).title()
+                    else:
+                        species_name = ' '.join(name_parts).title()
+                    species_set.add(species_name)
     
     CLASS_NAMES = sorted(list(species_set))
     
     if len(CLASS_NAMES) == 0:
-        print("\n⚠️  WARNING: No spider images found in dataset folder!")
-        print(f"  Dataset path: {os.path.abspath(DATASET_FOLDER)}")
-        print("  Expected structure: dataset/spider_images/species_name_*.jpg")
-        CLASS_NAMES = ["[NO DATASET]"]  # Default placeholder
+        print("\n[WARNING] No spider classes found!")
+        print(f"  Tried loading from: {class_names_path}")
+        print(f"  Tried loading from: {os.path.abspath(DATASET_FOLDER)}")
+        print("  Please train the model first: python train_model_fixed.py")
+        CLASS_NAMES = ["[NO DATASET]"]
     
     print(f"\nSpider species classes: {CLASS_NAMES}")
     print(f"Total classes: {len(CLASS_NAMES)}")
@@ -107,7 +127,7 @@ def load_model_from_disk():
             print(f"  Expected path: {os.path.abspath(MODEL_PATH)}")
             print("\n  To fix this:")
             print("  1. Train a model using: python train_model.py")
-            print("  2. Or place your trained model.h5 file in the model/ folder")
+            print("  2. Or place your trained model.keras file in the model/ folder")
             return False
     except Exception as e:
         print(f"✗ Error loading model: {e}")
@@ -119,20 +139,20 @@ def preprocess_image(image_path, target_size=(224, 224)):
         # Read image
         img = cv2.imread(image_path)
         if img is None:
+            print(f"❌ OpenCV could not read: {image_path}")
             return None
         
         # Convert BGR to RGB (OpenCV reads in BGR)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         
         # Resize to target size
-        img = cv2.resize(img, target_size)
+        img = cv2.resize(img, target_size, interpolation=cv2.INTER_AREA)
         
         # Normalize pixel values to 0-1 range
-        img = img.astype('float32') / 255.0
+        img = img.astype('float32') 
         
         # Add batch dimension [H, W, C] -> [1, H, W, C]
         img = np.expand_dims(img, axis=0)
-        
         return img
     except Exception as e:
         print(f"Error preprocessing image: {e}")
@@ -523,7 +543,7 @@ if __name__ == '__main__':
         if load_model_from_disk():
             print("\n✓ All systems ready!")
         else:
-            print("\n⚠ Warning: Model could not be loaded. Please add your model.h5 file.")
+            print("\n⚠ Warning: Model could not be loaded. Please add your model.keras file.")
     else:
         print("\n⚠ TensorFlow not installed - API will run in demo mode")
         print("  Install with: pip install tensorflow")

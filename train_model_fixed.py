@@ -140,11 +140,26 @@ model.compile(
     metrics=['accuracy']
 )
 
+#from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
 
-early_stop = EarlyStopping(monitor='val_loss', patience=4, restore_best_weights=True)
-reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.3, patience=2, min_lr=1e-6)
-model_checkpoint = ModelCheckpoint(MODEL_OUTPUT, monitor='val_accuracy', save_best_only=True, mode='max')
+early_stop = tf.keras.callbacks.EarlyStopping(
+    monitor='val_loss',
+    patience=4,
+    restore_best_weights=True
+)
+reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
+    monitor='val_loss',
+    factor=0.3,
+    patience=2,
+    min_lr=1e-6
+)
+model_checkpoint = tf.keras.callbacks.ModelCheckpoint(
+    MODEL_OUTPUT,
+    monitor='val_accuracy',
+    save_best_only=True,
+    mode='max'
+)
 
 
 # 8. Start Model Training Fits

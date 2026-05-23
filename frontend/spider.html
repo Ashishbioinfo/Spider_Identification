@@ -824,39 +824,48 @@ resultContainer.style.display = "block";
 document.getElementById("loadingWatcher").style.display = "block";
 document.getElementById("tabsContainer").style.display = "none";
 
-// Simulate API processing with mock data
-setTimeout(function(){
+var identifyUrl = window.location.protocol === 'file:'
+? 'http://127.0.0.1:5000/api/identify-spider-image'
+: '/api/identify-spider-image';
+
+fetch(identifyUrl, {
+method: 'POST',
+body: formData
+})
+.then(function(response){
+return response.json().then(function(data){
+if(!response.ok || !data.success){
+throw new Error(data.message || "Spider identification failed");
+}
+return data;
+});
+})
+.then(function(apiData){
 document.getElementById("loadingWatcher").style.display = "none";
 document.getElementById("tabsContainer").style.display = "block";
 
-// Mock data for demonstration
-var mockData = {
-species: "Salticidae (Jumping Spider)",
-scientific_name: "Salticidae",
-confidence: 0.875,
-matched_image: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 250'%3E%3Crect fill='%23f0f0f0' width='300' height='250'/%3E%3Ctext x='150' y='125' font-size='20' text-anchor='middle' fill='%23999'%3E[Reference Spider]%3C/text%3E%3C/svg%3E"
-};
+var confidencePercent = ((apiData.confidence || 0) * 100).toFixed(2);
+var speciesName = apiData.species || "Unknown Spider";
 
 // Update comparison tab
 document.getElementById("uploadedImage").src = uploadedImageUrl;
-document.getElementById("referenceImage").src = mockData.matched_image;
-document.getElementById("speciesName").textContent = mockData.species;
-document.getElementById("scientificName").textContent = mockData.scientific_name;
-document.getElementById("confidenceLevel").textContent = ((mockData.confidence || 0) * 100).toFixed(2) + "%";
+document.getElementById("referenceImage").src = uploadedImageUrl;
+document.getElementById("speciesName").textContent = speciesName;
+document.getElementById("scientificName").textContent = speciesName.replace(/_/g, " ");
+document.getElementById("confidenceLevel").textContent = confidencePercent + "%";
 
 // Update report tab
 var now = new Date();
 document.getElementById("analysisDate").textContent = now.toLocaleDateString() + " " + now.toLocaleTimeString();
 document.getElementById("specimenType").textContent = "Spider (Arachnida)";
-document.getElementById("classificationResult").textContent = mockData.species;
-document.getElementById("reportConfidence").textContent = ((mockData.confidence || 0) * 100).toFixed(2) + "%";
+document.getElementById("classificationResult").textContent = speciesName;
+document.getElementById("reportConfidence").textContent = confidencePercent + "%";
 
 var features = [
-"Body morphology analyzed",
-"Leg structure characteristics",
-"Color pattern recognition",
-"Size estimation from image",
-"Feature matching score: " + ((mockData.confidence || 0) * 100).toFixed(2) + "%"
+"Neural network image classification",
+"MobileNetV2 feature extraction",
+"Model class: " + speciesName,
+"Top prediction confidence: " + confidencePercent + "%"
 ];
 var featuresList = document.getElementById("morphologicalFeatures");
 featuresList.innerHTML = "";
@@ -869,15 +878,22 @@ featuresList.appendChild(li);
 // Update table tab with top 5 matches
 var tableBody = document.getElementById("tableBody");
 tableBody.innerHTML = "";
-var matchScore = ((mockData.confidence || 0) * 100).toFixed(2);
 
-var topMatches = [
-{species: mockData.species || "Unknown Spider", score: matchScore},
-{species: "Salticidae (Jumping Spider)", score: Math.max(0, matchScore - 5).toFixed(2)},
-{species: "Lycosidae (Wolf Spider)", score: Math.max(0, matchScore - 12).toFixed(2)},
-{species: "Araneidae (Orb Weaver)", score: Math.max(0, matchScore - 18).toFixed(2)},
-{species: "Linyphiidae (Sheet Web Spider)", score: Math.max(0, matchScore - 25).toFixed(2)}
-];
+var topMatches = (apiData.all_predictions || [])
+.map(function(prediction){
+return {
+species: prediction.species || "Unknown Spider",
+score: ((prediction.confidence || 0) * 100).toFixed(2)
+};
+})
+.sort(function(a, b){
+return parseFloat(b.score) - parseFloat(a.score);
+})
+.slice(0, 5);
+
+if(topMatches.length === 0){
+topMatches = [{species: speciesName, score: confidencePercent}];
+}
 
 topMatches.forEach(function(match, index){
 var tr = document.createElement("tr");
@@ -932,7 +948,7 @@ tableBody.appendChild(tr);
 });
 
 // Populate DNA tab with estimated genetic data from image
-document.getElementById("dnaSequenceId").textContent = (mockData.species || "Unknown") + " (from image analysis)";
+document.getElementById("dnaSequenceId").textContent = speciesName + " (from image analysis)";
 document.getElementById("dnaLength").textContent = Math.floor(Math.random() * 400 + 600); // Simulated length
 var estimatedGC = Math.floor(Math.random() * 10 + 41);
 document.getElementById("gcContent").textContent = estimatedGC + "%";
@@ -950,7 +966,12 @@ document.getElementById("geneticDistance").textContent = "Estimated from image f
 
 // Switch to comparison tab by default
 switchTab('comparison');
-}, 2000);
+})
+.catch(function(error){
+document.getElementById("loadingWatcher").style.display = "none";
+document.getElementById("tabsContainer").style.display = "none";
+alert("Error: " + error.message);
+});
 };
 reader.readAsDataURL(file);
 }

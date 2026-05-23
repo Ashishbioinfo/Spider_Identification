@@ -77,6 +77,13 @@ def load_dataset_images():
                 species_set.add(species_name)
     
     CLASS_NAMES = sorted(list(species_set))
+    
+    if len(CLASS_NAMES) == 0:
+        print("\n⚠️  WARNING: No spider images found in dataset folder!")
+        print(f"  Dataset path: {os.path.abspath(DATASET_FOLDER)}")
+        print("  Expected structure: dataset/spider_images/species_name_*.jpg")
+        CLASS_NAMES = ["[NO DATASET]"]  # Default placeholder
+    
     print(f"\nSpider species classes: {CLASS_NAMES}")
     print(f"Total classes: {len(CLASS_NAMES)}")
     return CLASS_NAMES
@@ -96,8 +103,11 @@ def load_model_from_disk():
             print(f"  Model input shape: {MODEL.input_shape}")
             return True
         else:
-            print(f"⚠ Model file not found at {MODEL_PATH}")
+            print(f"\n❌ Model file NOT found: {MODEL_PATH}")
             print(f"  Expected path: {os.path.abspath(MODEL_PATH)}")
+            print("\n  To fix this:")
+            print("  1. Train a model using: python train_model.py")
+            print("  2. Or place your trained model.h5 file in the model/ folder")
             return False
     except Exception as e:
         print(f"✗ Error loading model: {e}")
@@ -140,11 +150,18 @@ def identify_spider_image():
                 'message': 'TensorFlow not installed. Please install with: pip install tensorflow'
             }), 500
         
+        # Check if dataset is empty
+        if len(CLASS_NAMES) == 0 or CLASS_NAMES[0] == "[NO DATASET]":
+            return jsonify({
+                'success': False,
+                'message': 'No spider dataset found! Please add spider images to: dataset/spider_images/ (Expected: dataset/spider_images/Species_Name_*.jpg)'
+            }), 500
+        
         # Check if model is loaded
         if MODEL is None:
             return jsonify({
                 'success': False,
-                'message': 'Model not loaded. Please ensure the model file exists at: ' + MODEL_PATH
+                'message': f'Trained model not found at: {MODEL_PATH}. Please train the model first or ensure the file exists.'
             }), 500
         
         # Check if file is in request
@@ -195,6 +212,13 @@ def identify_spider_image():
         else:
             species_name = "Unknown Spider Species"
         
+        # Ensure we don't return invalid species
+        if species_name == "[NO DATASET]":
+            return jsonify({
+                'success': False,
+                'message': 'Model has no valid training data. Add spider images to dataset/spider_images/'
+            }), 500
+        
         # Return result
         return jsonify({
             'success': True,
@@ -202,7 +226,7 @@ def identify_spider_image():
             'confidence': confidence,
             'all_predictions': [
                 {
-                    'species': CLASS_NAMES[i],
+                    'species': CLASS_NAMES[i] if CLASS_NAMES[i] != "[NO DATASET]" else "No Data",
                     'confidence': float(predictions[0][i])
                 }
                 for i in range(len(CLASS_NAMES))

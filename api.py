@@ -335,7 +335,7 @@ def blast_sequence():
         
         try:
             # Relaxed system socket timeout to wait for NCBI's web cluster processing queue
-            socket.setdefaulttimeout(180)
+            socket.setdefaulttimeout(1000)
             
             result_handle = None
             max_retries = 3

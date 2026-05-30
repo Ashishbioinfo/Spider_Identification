@@ -183,3 +183,56 @@ print(f"  Validation Evaluation Accuracy: {val_accuracy:.4f} ({val_accuracy*100:
 model.save(MODEL_OUTPUT)
 print(f"✓ Success: Core weights completely written to -> {MODEL_OUTPUT}")
 print("="*70)
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import confusion_matrix, classification_report
+
+print("\n[EVALUATION] Generating Confusion Matrix...")
+
+# 1. Extract true labels and model predictions from the validation stream
+y_true = []
+y_pred = []
+
+# Loop through the validation dataset batch by batch
+for images, labels in val_ds:
+    # Append the true numerical labels to our list
+    y_true.extend(labels.numpy())
+    
+    # Run the batch through the model to get raw percentage probabilities
+    preds = model.predict(images, verbose=0)
+    
+    # Take the index of the highest probability percentage (the model's choice)
+    y_pred.extend(np.argmax(preds, axis=1))
+
+# Convert collected structures into standard NumPy arrays
+y_true = np.array(y_true)
+y_pred = np.array(y_pred)
+
+# 2. Compute the mathematical confusion matrix configuration
+cm = confusion_matrix(y_true, y_pred)
+
+# 3. Print out a clean textual classification breakdown in the terminal window
+print("\n📋 Detailed Classification Report:")
+print(classification_report(y_true, y_pred, target_names=class_names))
+
+# 4. Render and plot the visual confusion matrix using Seaborn
+plt.figure(figsize=(8, 6))
+sns.heatmap(
+    cm, 
+    annot=True, 
+    fmt='d', 
+    cmap='Blues',
+    xticklabels=class_names, 
+    yticklabels=class_names
+)
+plt.title('Spider Species Classification Matrix')
+plt.ylabel('Actual Spider Class')
+plt.xlabel('Predicted Spider Class')
+plt.tight_layout()
+
+# Save the matrix directly as an image asset in your project directory
+matrix_img_path = 'model/confusion_matrix.png'
+plt.savefig(matrix_img_path)
+print(f"✓ Success: Visual matrix diagram successfully written to -> {matrix_img_path}")
+plt.show()

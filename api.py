@@ -170,18 +170,11 @@ def identify_spider_image():
                 'message': 'TensorFlow not installed. Please install with: pip install tensorflow'
             }), 500
         
-        # Check if dataset is empty
-        if len(CLASS_NAMES) == 0 or CLASS_NAMES[0] == "[NO DATASET]":
-            return jsonify({
-                'success': False,
-                'message': 'No spider dataset found! Please add spider images to: dataset/spider_images/ (Expected: dataset/spider_images/Species_Name_*.jpg)'
-            }), 500
-        
-        # Check if model is loaded
+        # Check if model is loaded (this is the only required check - trained model contains all necessary data)
         if MODEL is None:
             return jsonify({
                 'success': False,
-                'message': f'Trained model not found at: {MODEL_PATH}. Please train the model first or ensure the file exists.'
+                'message': f'Trained model not found at: {MODEL_PATH}. Please train the model first with: python train_model_fixed.py'
             }), 500
         
         # Check if file is in request
@@ -231,13 +224,6 @@ def identify_spider_image():
             species_name = CLASS_NAMES[predicted_class_idx]
         else:
             species_name = "Unknown Spider Species"
-        
-        # Ensure we don't return invalid species
-        if species_name == "[NO DATASET]":
-            return jsonify({
-                'success': False,
-                'message': 'Model has no valid training data. Add spider images to dataset/spider_images/'
-            }), 500
         
         # Return result
         return jsonify({
